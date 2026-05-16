@@ -1,11 +1,12 @@
 import type { RouteObject } from "react-router-dom";
-import { DashboardOverview } from "@/features/dashboard/components/DashboardOverview";
-import { PatientList } from "@/features/patients/components/PatientList";
-import { DoctorList } from "@/features/doctors/components/DoctorList";
-import { AppointmentList } from "@/features/appointments/components/AppointmentList";
-import { AnalyticsPage } from "@/features/analytics/components/AnalyticsPage";
-import { SettingsPage } from "@/features/settings/components/SettingsPage";
-import { HelpPage } from "@/features/help/components/HelpPage";
+import { DashboardOverview } from "@/features/hospital/components/DashboardOverview";
+import { PatientList } from "@/features/patient/components/PatientList";
+import { DoctorList } from "@/features/hospital/components/DoctorList";
+import { AppointmentList } from "@/features/hospital/components/AppointmentList";
+import { AnalyticsPage } from "@/shared/analytics/components/AnalyticsPage";
+import { SettingsPage } from "@/shared/settings/components/SettingsPage";
+import { HelpPage } from "@/shared/help/components/HelpPage";
+import { CreateShiftPage } from "@/features/hospital/shifts/components/CreateShiftPage";
 
 export const hospitalPageRoutes: RouteObject[] = [
   { path: "dashboard", element: <DashboardOverview /> },
@@ -15,4 +16,8 @@ export const hospitalPageRoutes: RouteObject[] = [
   { path: "analytics", element: <AnalyticsPage /> },
   { path: "settings", element: <SettingsPage /> },
   { path: "help", element: <HelpPage /> },
+];
+
+export const hospitalStandaloneRoutes: RouteObject[] = [
+  { path: "shifts/create", element: <CreateShiftPage /> },
 ];

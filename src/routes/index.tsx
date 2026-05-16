@@ -4,7 +4,10 @@ import { RoleLayout } from "@/layouts/RoleLayout";
 import type { AppProfile } from "@/types";
 import { DEFAULT_REDIRECT } from "./paths";
 import { buildOnboardingRoutes } from "./roles/onboarding.routes";
-import { hospitalPageRoutes } from "./roles/hospital.routes";
+import {
+  hospitalPageRoutes,
+  hospitalStandaloneRoutes,
+} from "./roles/hospital.routes";
 import { medicalStaffPageRoutes } from "./roles/medical-staff.routes";
 import { patientPageRoutes } from "./roles/patient.routes";
 
@@ -12,6 +15,7 @@ function buildRoleTree(
   basePath: string,
   profile: AppProfile,
   pageRoutes: RouteObject[],
+  standaloneRoutes: RouteObject[] = [],
 ): RouteObject {
   return {
     path: `${basePath}/*`,
@@ -19,9 +23,11 @@ function buildRoleTree(
       { index: true, element: <Navigate to="dashboard" replace /> },
 
       ...buildOnboardingRoutes(profile),
+      ...standaloneRoutes,
 
       {
         element: <RoleLayout profile={profile} />,
+
         children: pageRoutes,
       },
 
@@ -33,7 +39,12 @@ function buildRoleTree(
 export const appRoutes: RouteObject[] = [
   { path: "/", element: <Navigate to={DEFAULT_REDIRECT} replace /> },
 
-  buildRoleTree("/hospital", "hospital", hospitalPageRoutes),
+  buildRoleTree(
+    "/hospital",
+    "hospital",
+    hospitalPageRoutes,
+    hospitalStandaloneRoutes,
+  ),
   buildRoleTree("/medical-staff", "medical-staff", medicalStaffPageRoutes),
   buildRoleTree("/patient", "patient", patientPageRoutes),
 
