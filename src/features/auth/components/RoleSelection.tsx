@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { NexusCareLogo } from '@/shared/components/ui/NexusCareLogo';
 import { Stethoscope, Building2, ArrowRight } from 'lucide-react';
@@ -64,7 +65,7 @@ export function RoleSelection() {
     <div className="min-h-screen bg-[#F3FAFF] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Main Role Selection Card */}
-        <div className="bg-white border border-gray-200 shadow-xl rounded-3xl overflow-hidden min-h-[85vh] sm:min-h-0 flex flex-col">
+        <Card className="bg-white border-2 border-[#0EA5E9] shadow-xl rounded-3xl overflow-hidden min-h-[85vh] sm:min-h-0 flex flex-col">
           {/* Header */}
           <div className="bg-white px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div className="flex items-center justify-between">
@@ -82,7 +83,7 @@ export function RoleSelection() {
             </div>
           </div>
 
-          <div className="px-6 py-8 flex-1 flex flex-col justify-center">
+          <CardContent className="px-6 py-8 flex-1 flex flex-col justify-center">
             {/* Title */}
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-onboarding-textPrimary mb-2">
@@ -182,8 +183,8 @@ export function RoleSelection() {
             <p className="text-xs text-onboarding-textSecondary text-center mt-6 leading-relaxed">
               By continuing, you agree to our terms of service and clinical compliance guidelines.
             </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
