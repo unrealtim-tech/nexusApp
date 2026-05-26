@@ -78,10 +78,10 @@ export function EmailLogin() {
           {/* Welcome Section */}
           <div className="text-center mb-12">
             <h1 className="text-4xl sm:text-3xl font-bold text-onboarding-textPrimary mb-4">
-              Welcome Back
+              Start your professional journey.
             </h1>
             <p className="text-lg sm:text-base text-onboarding-textSecondary leading-relaxed">
-              Enter your email address to access your workspace
+              Enter your work email to begin.
             </p>
           </div>
 
@@ -89,7 +89,7 @@ export function EmailLogin() {
             {/* Email Address Section */}
             <div className="space-y-4">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-neutral-500">
-                Email Address
+                Work Email
               </label>
               
               {/* Email Input Container */}
@@ -103,7 +103,7 @@ export function EmailLogin() {
                   value={email}
                   onChange={(e) => handleEmailChange(e.target.value)}
                   className="flex-1 bg-transparent text-base text-neutral-800 placeholder:text-neutral-400 outline-none"
-                  placeholder="enter email"
+                  placeholder="name@medicalcenter.com"
                 />
               </div>
 
