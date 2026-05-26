@@ -22,18 +22,8 @@ export function EmailVerificationSuccess() {
       // Simulate processing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Navigate to role selection or dashboard based on user type
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        const user = JSON.parse(userData);
-        if (user.role === 'hospital-admin') {
-          navigate('/hospital/dashboard');
-        } else {
-          navigate('/auth/role-selection');
-        }
-      } else {
-        navigate('/auth/role-selection');
-      }
+      // Always navigate to role selection after email verification
+      navigate('/auth/role-selection');
     } catch (error) {
       console.error('Navigation error:', error);
     } finally {
@@ -146,7 +136,7 @@ export function EmailVerificationSuccess() {
               </div>
             ) : (
               <div className="flex items-center justify-center space-x-2">
-                <span>Continue to Dashboard</span>
+                <span>Continue</span>
                 <ArrowRight className="w-5 h-5" />
               </div>
             )}
