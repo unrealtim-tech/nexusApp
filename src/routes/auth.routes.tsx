@@ -47,16 +47,4 @@ export const authRoutes: RouteObject[] = [
       { path: "success", element: <WaitlistSuccessStep /> },
     ],
   },
-  {
-    path: "/waitlist",
-    children: [
-      { index: true, element: <Navigate to="/" replace /> },
-      { path: "landing", element: <Navigate to="/" replace /> },
-      { path: "join", element: <Navigate to="/" replace /> },
-      { path: "form/hospital", element: <Navigate to="/" replace /> },
-      { path: "form/health-worker", element: <Navigate to="/" replace /> },
-      { path: "success", element: <Navigate to="/success" replace /> },
-      { path: "*", element: <Navigate to="/" replace /> },
-    ],
-  },
 ];

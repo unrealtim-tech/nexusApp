@@ -4,6 +4,16 @@ import { Card, CardContent } from "@/shared/components/ui/Card";
 import { Button } from "@/shared/components/ui/Button";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { ArrowLeft } from "lucide-react";
+import { authUtils, normalizeRole } from "../utils/authUtils";
+import {
+  sendLoginOtp,
+  verifyLoginOtp,
+  AuthUserResponse,
+} from "../services/authApi";
+import {
+  sendClinicianRegistrationOtp,
+  verifyClinicianRegistrationOtp,
+} from "@/features/onboarding/services/onboardingApi";
 
 export function OtpVerify() {
   const navigate = useNavigate();
@@ -17,13 +27,15 @@ export function OtpVerify() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Get email from previous step
     const pendingEmail = localStorage.getItem("pendingEmail");
-    if (!pendingEmail) {
+    const pendingPhone = localStorage.getItem("pendingPhone");
+
+    if (!pendingEmail && !pendingPhone) {
       navigate("/auth/login");
       return;
     }
-    setPhoneNumber(pendingEmail); // Reusing phoneNumber state for email
+
+    setPhoneNumber(pendingEmail || pendingPhone || "");
 
     // Start countdown timer
     const timer = setInterval(() => {
@@ -90,6 +102,22 @@ export function OtpVerify() {
     }
   };
 
+  const mapBackendUserToUserData = (user: AuthUserResponse) => {
+    const role = normalizeRole(user.role);
+    if (!role) {
+      throw new Error("Unsupported user role received from server");
+    }
+
+    return {
+      id: user.id,
+      fullName: `${user.first_name} ${user.last_name}`,
+      email: user.email,
+      role,
+      loginAt: user.last_login_at ?? new Date().toISOString(),
+      createdAt: user.created_at,
+    };
+  };
+
   const handleVerifyOtp = async (otpCode?: string) => {
     const codeToVerify = otpCode || otp.join("");
 
@@ -98,27 +126,71 @@ export function OtpVerify() {
       return;
     }
 
+    const pendingEmail = localStorage.getItem("pendingEmail");
+    const pendingPhone = localStorage.getItem("pendingPhone");
+
     setIsLoading(true);
     setError("");
 
     try {
-      // Simulate OTP verification
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const selectedRole = localStorage.getItem("selectedRole");
 
-      // For demo, accept any 6-digit code
-      if (codeToVerify.length === 6) {
-        // Store verification success
-        localStorage.setItem("emailVerified", "true");
+      if (pendingEmail && selectedRole === "health-worker") {
+        const response = await verifyClinicianRegistrationOtp(
+          pendingEmail,
+          codeToVerify,
+        );
+        const userData = {
+          id: response.clinician_id,
+          fullName: "Healthcare Professional",
+          email: pendingEmail,
+          role: "medical-staff" as const,
+          loginAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        };
+
+        authUtils.setAuthData(response.access_token, userData);
+        localStorage.setItem("clinicianId", response.clinician_id);
         localStorage.removeItem("pendingEmail");
+        localStorage.removeItem("emailVerified");
 
-        // Navigate to role selection
-        navigate("/auth/role-selection");
-      } else {
-        setError("Invalid verification code. Please try again.");
+        navigate("/auth/onboarding/professional-profile");
+        return;
       }
+
+      if (pendingEmail) {
+        const response = await verifyLoginOtp(pendingEmail, codeToVerify);
+        const userData = mapBackendUserToUserData(response.user);
+        authUtils.setAuthData(response.access_token, userData);
+        localStorage.setItem("refreshToken", response.refresh_token);
+        localStorage.removeItem("pendingEmail");
+        localStorage.removeItem("emailVerified");
+
+        const redirectPath = authUtils.getRedirectPath(userData.role);
+        navigate(redirectPath);
+        return;
+      }
+
+      if (pendingPhone) {
+        // Preserve legacy phone OTP behavior until phone login is backed by API.
+        localStorage.setItem("emailVerified", "true");
+        localStorage.removeItem("pendingPhone");
+        navigate("/auth/role-selection");
+        return;
+      }
+
+      setError("Unable to verify OTP. Please restart the login process.");
     } catch (error) {
       console.error("OTP verification error:", error);
-      setError("Verification failed. Please try again.");
+      const msg =
+        (error as Error)?.message || "Verification failed. Please try again.";
+      if (msg.toLowerCase().includes("user not found")) {
+        setError(
+          "We could not find an account for this email. Please sign up or try a different email.",
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -127,27 +199,27 @@ export function OtpVerify() {
   const handleResendOtp = async () => {
     if (!canResend) return;
 
+    const pendingEmail = localStorage.getItem("pendingEmail");
+    const selectedRole = localStorage.getItem("selectedRole");
+
     setCanResend(false);
     setResendTimer(60);
     setError("");
 
     try {
-      // Simulate resend
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Restart timer
-      const timer = setInterval(() => {
-        setResendTimer((prev) => {
-          if (prev <= 1) {
-            setCanResend(true);
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      if (pendingEmail && selectedRole === "health-worker") {
+        await sendClinicianRegistrationOtp(pendingEmail);
+      } else if (pendingEmail) {
+        await sendLoginOtp(pendingEmail);
+      } else {
+        // Preserve legacy phone OTP resend behavior until phone login is backed by API.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
     } catch (error) {
       console.error("Resend error:", error);
+      setError(
+        (error as Error)?.message || "Unable to resend OTP. Please try again.",
+      );
       setCanResend(true);
     }
   };

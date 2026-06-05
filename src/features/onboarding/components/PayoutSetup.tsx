@@ -1,11 +1,17 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { Button } from "@/shared/components/ui/Button";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
-import { X, Bell, Building, CheckCircle, Loader2 } from "lucide-react";
+import { X, Bell, Building, CheckCircle } from "lucide-react";
+import { useClinicianBankAccount } from "@/features/onboarding/hooks/useOnboarding";
+import {
+  payoutSetupSchema,
+  type PayoutSetupFormData,
+} from "@/features/onboarding/schemas/onboardingSchemas";
 
-// Nigerian banks for demo
 const nigerianBanks = [
   { code: "044", name: "Access Bank" },
   { code: "014", name: "Afribank Nigeria Plc" },
@@ -27,142 +33,107 @@ const nigerianBanks = [
   { code: "057", name: "Zenith Bank Plc" },
 ];
 
-interface PayoutData {
-  bankCode: string;
-  accountNumber: string;
-  accountName: string;
-}
+const mockNames = [
+  "Dr. Adebayo Johnson",
+  "Dr. Fatima Abdullahi",
+  "Dr. Chinedu Okafor",
+  "Dr. Aisha Mohammed",
+  "Dr. Olumide Adeyemi",
+];
 
 export function PayoutSetup() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<PayoutData>({
-    bankCode: "",
-    accountNumber: "",
-    accountName: "",
+  const bankAccountMutation = useClinicianBankAccount();
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<PayoutSetupFormData>({
+    resolver: zodResolver(payoutSetupSchema),
+    defaultValues: {
+      bankCode: "",
+      accountNumber: "",
+      accountName: "",
+    },
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [errors, setErrors] = useState<Partial<PayoutData>>({});
+
+  const selectedRole = localStorage.getItem("selectedRole") || "health-worker";
+  const clinicianId = localStorage.getItem("clinicianId");
+
+  const accountNumber = watch("accountNumber");
+  const bankCode = watch("bankCode");
 
   // Simulate account name lookup when bank and account number are provided
   useEffect(() => {
-    if (formData.bankCode && formData.accountNumber.length === 10) {
-      verifyAccountDetails();
+    if (bankCode && accountNumber?.length === 10) {
+      const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
+      setValue("accountName", randomName, { shouldValidate: true });
     } else {
-      setFormData((prev) => ({ ...prev, accountName: "" }));
-      setIsVerified(false);
+      setValue("accountName", "", { shouldValidate: true });
     }
-  }, [formData.bankCode, formData.accountNumber]);
+  }, [bankCode, accountNumber, setValue]);
 
-  const verifyAccountDetails = async () => {
-    setIsVerifying(true);
-    setIsVerified(false);
-
+  const handleComplete = async (data: PayoutSetupFormData) => {
     try {
-      // Simulate Paystack account verification API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (selectedRole === "health-worker") {
+        if (!clinicianId) {
+          throw new Error(
+            "Clinician account not found. Please restart verification.",
+          );
+        }
 
-      // Mock account name based on account number (for demo)
-      const mockNames = [
-        "Dr. Adebayo Johnson",
-        "Dr. Fatima Abdullahi",
-        "Dr. Chinedu Okafor",
-        "Dr. Aisha Mohammed",
-        "Dr. Olumide Adeyemi",
-      ];
+        await bankAccountMutation.mutateAsync({
+          clinicianId,
+          payload: {
+            account_number: data.accountNumber,
+            bank_code: data.bankCode,
+          },
+        });
+      }
 
-      const randomName =
-        mockNames[Math.floor(Math.random() * mockNames.length)];
-
-      setFormData((prev) => ({ ...prev, accountName: randomName }));
-      setIsVerified(true);
-    } catch (error) {
-      console.error("Account verification error:", error);
-      setFormData((prev) => ({ ...prev, accountName: "Verification failed" }));
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleAccountNumberChange = (value: string) => {
-    // Only allow numbers and limit to 10 digits
-    const cleaned = value.replace(/\D/g, "").slice(0, 10);
-    setFormData((prev) => ({ ...prev, accountNumber: cleaned }));
-
-    if (errors.accountNumber) {
-      setErrors((prev) => ({ ...prev, accountNumber: undefined }));
-    }
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: Partial<PayoutData> = {};
-
-    if (!formData.bankCode) {
-      newErrors.bankCode = "Please select a bank";
-    }
-
-    if (!formData.accountNumber) {
-      newErrors.accountNumber = "Account number is required";
-    } else if (formData.accountNumber.length !== 10) {
-      newErrors.accountNumber = "Account number must be 10 digits";
-    }
-
-    if (!isVerified) {
-      newErrors.accountName = "Account verification is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleComplete = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-
-    try {
-      // Simulate final setup
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Store payout data
-      localStorage.setItem("payoutData", JSON.stringify(formData));
-
-      // Mark onboarding as complete
-      localStorage.setItem("onboardingComplete", "true");
-
-      // Create final user profile
       const professionalData = JSON.parse(
         localStorage.getItem("professionalData") || "{}",
       );
-      const selectedRole =
-        localStorage.getItem("selectedRole") || "health-worker";
-      const userData = {
-        id: `user_${Date.now()}`,
-        fullName: formData.accountName,
-        email: localStorage.getItem("pendingEmail") || "",
-        role:
-          selectedRole === "health-worker" ? "medical-staff" : "hospital-admin",
-        professional: professionalData,
-        payout: formData,
-        onboardingComplete: true,
-        createdAt: new Date().toISOString(),
-      };
+      const pendingEmail = localStorage.getItem("pendingEmail") || "";
 
-      // Store complete user data and auth token
-      const authToken = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const authToken =
+        localStorage.getItem("authToken") ||
+        `token_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      const currentUserData = localStorage.getItem("userData");
+      const userData = currentUserData
+        ? JSON.parse(currentUserData)
+        : {
+            id: `user_${Date.now()}`,
+            fullName: data.accountName,
+            email: pendingEmail,
+            role: selectedRole === "health-worker" ? "medical-staff" : "hospital-admin",
+            onboardingComplete: true,
+            createdAt: new Date().toISOString(),
+          };
+
       localStorage.setItem("authToken", authToken);
-      localStorage.setItem("userData", JSON.stringify(userData));
+      localStorage.setItem(
+        "userData",
+        JSON.stringify({
+          ...userData,
+          onboardingComplete: true,
+          payout: data,
+          professional: professionalData,
+        }),
+      );
 
-      // Clean up temporary data
       localStorage.removeItem("emailVerified");
       localStorage.removeItem("selectedRole");
       localStorage.removeItem("professionalData");
       localStorage.removeItem("payoutData");
+      localStorage.removeItem("clinicianId");
+      localStorage.removeItem("pendingEmail");
 
-      // Navigate based on role
       if (selectedRole === "health-worker") {
         navigate("/medical-staff/dashboard");
       } else {
@@ -170,8 +141,6 @@ export function PayoutSetup() {
       }
     } catch (error) {
       console.error("Onboarding completion error:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -225,7 +194,7 @@ export function PayoutSetup() {
             <p className="text-onboarding-textSecondary leading-relaxed">
               Link your bank account to receive instant payments via Paystack.
             </p>
-            <form onSubmit={handleComplete} className="space-y-6">
+            <form onSubmit={handleSubmit(handleComplete)} className="space-y-6">
               {/* Bank Selection */}
               <div className="space-y-3">
                 <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
@@ -234,13 +203,7 @@ export function PayoutSetup() {
                 <div className="flex items-center gap-2.5 rounded-lg bg-onboarding-inputBackground px-3 py-2.5">
                   <Building className="h-4 w-4 flex-shrink-0 text-secondary-600" />
                   <select
-                    value={formData.bankCode}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        bankCode: e.target.value,
-                      }))
-                    }
+                    {...register("bankCode")}
                     className={`flex-1 bg-transparent text-sm text-neutral-800 outline-none ${
                       errors.bankCode ? "text-red-600" : ""
                     }`}
@@ -254,7 +217,7 @@ export function PayoutSetup() {
                   </select>
                 </div>
                 {errors.bankCode && (
-                  <p className="text-sm text-red-600">{errors.bankCode}</p>
+                  <p className="text-sm text-red-600">{errors.bankCode.message}</p>
                 )}
               </div>
 
@@ -266,8 +229,11 @@ export function PayoutSetup() {
                 <div className="flex items-center gap-2.5 rounded-lg bg-onboarding-inputBackground px-3 py-2.5">
                   <input
                     type="text"
-                    value={formData.accountNumber}
-                    onChange={(e) => handleAccountNumberChange(e.target.value)}
+                    {...register("accountNumber")}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setValue("accountNumber", cleaned, { shouldValidate: true });
+                    }}
                     className={`flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 font-mono ${
                       errors.accountNumber ? "text-red-600" : ""
                     }`}
@@ -285,7 +251,9 @@ export function PayoutSetup() {
                   </div>
                 </div>
                 {errors.accountNumber && (
-                  <p className="text-sm text-red-600">{errors.accountNumber}</p>
+                  <p className="text-sm text-red-600">
+                    {errors.accountNumber.message}
+                  </p>
                 )}
               </div>
 
@@ -296,48 +264,56 @@ export function PayoutSetup() {
                 </label>
                 <div
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all ${
-                    isVerified
+                    watch("accountName") && !errors.accountName
                       ? "border-green-300 bg-green-50"
                       : "bg-onboarding-inputBackground"
                   }`}
                 >
-                  {isVerifying ? (
-                    <div className="flex items-center space-x-2 text-onboarding-textSecondary">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">
-                        Verifying account details...
-                      </span>
-                    </div>
-                  ) : formData.accountName ? (
-                    <div className="flex items-center space-x-2">
-                      {isVerified && (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      )}
-                      <span
-                        className={`text-sm ${isVerified ? "text-green-800 font-semibold" : "text-neutral-800"}`}
-                      >
-                        {formData.accountName}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-neutral-400">
-                      Account name will appear here after verification
-                    </span>
-                  )}
+                  <Controller
+                    control={control}
+                    name="accountName"
+                    render={({ field }) =>
+                      field.value ? (
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm text-green-800 font-semibold">
+                            {field.value}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-neutral-400">
+                          Account name will appear here after verification
+                        </span>
+                      )
+                    }
+                  />
                 </div>
                 {errors.accountName && (
-                  <p className="text-sm text-red-600">{errors.accountName}</p>
+                  <p className="text-sm text-red-600">{errors.accountName.message}</p>
                 )}
               </div>
+
+              {bankAccountMutation.isError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {bankAccountMutation.error?.message ||
+                    "Unable to link account. Please try again."}
+                </div>
+              )}
+
+              {!clinicianId && selectedRole === "health-worker" && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  Unable to complete registration. Please verify your email first.
+                </div>
+              )}
 
               {/* Complete Setup Button */}
               <Button
                 type="submit"
-                disabled={isLoading || !isVerified}
-                isLoading={isLoading}
+                disabled={isSubmitting || !watch("accountName")}
+                isLoading={isSubmitting}
                 className="w-full rounded-lg bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue py-3 text-sm font-semibold uppercase tracking-widest text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50"
               >
-                {isLoading ? "Completing Setup..." : "Link Account & Continue"}
+                {isSubmitting ? "Linking Account..." : "Link Account & Continue"}
               </Button>
             </form>
 
@@ -353,8 +329,7 @@ export function PayoutSetup() {
                   </h4>
                   <p className="text-sm text-slate-600">
                     Your banking information is encrypted and processed securely
-                    through Paystack. We never store your sensitive financial
-                    data.
+                    through Paystack. We never store your sensitive financial data.
                   </p>
                 </div>
               </div>

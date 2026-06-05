@@ -1,108 +1,100 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { Button } from "@/shared/components/ui/Button";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { X, Bell, Award, Stethoscope } from "lucide-react";
+import { useClinicianProfile } from "@/features/onboarding/hooks/useOnboarding";
+import {
+  professionalProfileSchema,
+  clinicianRoles,
+  clinicalSpecialties,
+  experienceLevels,
+  type ProfessionalProfileFormData,
+} from "@/features/onboarding/schemas/onboardingSchemas";
+import type { ClinicalSpecialty } from "@/features/onboarding/services/onboardingApi";
+import { useRoleBasePath } from "@/shared/onboarding/hooks/useRoleBasePath";
 
-interface ProfessionalData {
-  licenseNumber: string;
-  specialties: string[];
-  yearsOfExperience: string;
+function mapSelectedSpecialtyToBackend(specialtyId: string): ClinicalSpecialty {
+  switch (specialtyId) {
+    case "general-practice":
+      return "general-nursing";
+    case "surgery":
+      return "surgery";
+    case "pediatrics":
+      return "pediatrics";
+    case "nursing":
+      return "general-nursing";
+    case "anesthesiology":
+      return "anesthesiology";
+    default:
+      return "other";
+  }
 }
 
-interface ProfessionalFormErrors {
-  licenseNumber?: string;
-  specialties?: string;
-  yearsOfExperience?: string;
-}
+const specialtyLabels: Record<(typeof clinicalSpecialties)[number], string> = {
+  "general-practice": "General Practice ✓",
+  surgery: "Surgery",
+  pediatrics: "Pediatrics",
+  nursing: "Nursing",
+  anesthesiology: "Anesthesiology",
+  other: "+ Other",
+};
+
+const experienceLabels: Record<(typeof experienceLevels)[number], string> = {
+  "0-1": "0-1 years (Fresh Graduate)",
+  "2-5": "2-5 years",
+  "6-10": "6-10 years",
+  "11-15": "11-15 years",
+  "16-20": "16-20 years",
+  "20+": "20+ years",
+};
 
 export function ProfessionalProfile() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<ProfessionalData>({
-    licenseNumber: "",
-    specialties: [],
-    yearsOfExperience: "",
+  const basePath = useRoleBasePath();
+  const profileMutation = useClinicianProfile();
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<ProfessionalProfileFormData>({
+    resolver: zodResolver(professionalProfileSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      role: "Doctor",
+      licenseNumber: "",
+      specialties: [],
+      yearsOfExperience: undefined,
+    },
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<ProfessionalFormErrors>({});
 
-  const handleLicenseChange = (value: string) => {
-    // Format license number as MDCN/R/XXXX
-    let formatted = value.toUpperCase().replace(/[^A-Z0-9/]/g, "");
-
-    if (!formatted.startsWith("MDCN/R/") && formatted.length > 0) {
-      if (formatted.startsWith("MDCN/R")) {
-        formatted = formatted;
-      } else if (formatted.startsWith("MDCN")) {
-        formatted = formatted.replace("MDCN", "MDCN/R/");
-      } else {
-        formatted = "MDCN/R/" + formatted;
-      }
+  const onSubmit = async (data: ProfessionalProfileFormData) => {
+    const clinicianId = localStorage.getItem("clinicianId");
+    if (!clinicianId) {
+      return;
     }
-
-    setFormData((prev) => ({ ...prev, licenseNumber: formatted }));
-
-    if (errors.licenseNumber) {
-      setErrors((prev) => ({ ...prev, licenseNumber: undefined }));
-    }
-  };
-
-  const toggleSpecialty = (specialtyId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      specialties: prev.specialties.includes(specialtyId)
-        ? prev.specialties.filter((id) => id !== specialtyId)
-        : [...prev.specialties, specialtyId],
-    }));
-
-    if (errors.specialties) {
-      setErrors((prev) => ({ ...prev, specialties: undefined }));
-    }
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: ProfessionalFormErrors = {};
-
-    if (!formData.licenseNumber.trim()) {
-      newErrors.licenseNumber = "License number is required";
-    } else if (!formData.licenseNumber.match(/^MDCN\/R\/\d{4,}$/)) {
-      newErrors.licenseNumber =
-        "Please enter a valid MDCN license number (e.g., MDCN/R/12345)";
-    }
-
-    if (formData.specialties.length === 0) {
-      newErrors.specialties = "Please select at least one specialty";
-    }
-
-    if (!formData.yearsOfExperience) {
-      newErrors.yearsOfExperience = "Years of experience is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleContinue = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await profileMutation.mutateAsync({
+        clinicianId,
+        payload: {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          role: data.role,
+          license_number: data.licenseNumber,
+          specialty: mapSelectedSpecialtyToBackend(data.specialties[0] || "other"),
+        },
+      });
 
-      // Store professional data
-      localStorage.setItem("professionalData", JSON.stringify(formData));
-
-      // Navigate to payout setup
-      navigate("/auth/onboarding/payout-setup");
-    } catch (error) {
-      console.error("Professional profile error:", error);
-    } finally {
-      setIsLoading(false);
+      localStorage.setItem("professionalData", JSON.stringify(data));
+      navigate(`${basePath}/onboarding/payout-setup`);
+    } catch {
+      // Error state managed by mutation
     }
   };
 
@@ -157,18 +149,76 @@ export function ProfessionalProfile() {
               To ensure clinical safety and maintain our high standards of care,
               please provide your current medical registration details.
             </p>
-            <form onSubmit={handleContinue} className="space-y-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+              {/* Name and Role */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("firstName")}
+                    className={`w-full rounded-lg border border-slate-200 bg-onboarding-inputBackground px-3 py-2 text-sm text-neutral-800 outline-none transition-colors ${
+                      errors.firstName ? "border-red-300 text-red-700" : ""
+                    }`}
+                    placeholder="First name"
+                  />
+                  {errors.firstName && (
+                    <p className="text-sm text-red-600">
+                      {errors.firstName.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <label className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("lastName")}
+                    className={`w-full rounded-lg border border-slate-200 bg-onboarding-inputBackground px-3 py-2 text-sm text-neutral-800 outline-none transition-colors ${
+                      errors.lastName ? "border-red-300 text-red-700" : ""
+                    }`}
+                    placeholder="Last name"
+                  />
+                  {errors.lastName && (
+                    <p className="text-sm text-red-600">
+                      {errors.lastName.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
+                  Professional Role
+                </label>
+                <div className="flex items-center gap-2 rounded-lg bg-onboarding-inputBackground px-3 py-2.5">
+                  <select
+                    {...register("role")}
+                    className="flex-1 bg-transparent text-sm text-neutral-800 outline-none"
+                  >
+                    {clinicianRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {role === "LabTechnician" ? "Lab Technician" : role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* License Number */}
               <div className="space-y-3">
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-neutral-500 flex items-center space-x-2">
+                <label className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500 flex items-center space-x-2">
                   <Award className="h-4 w-4" />
                   <span>License Number</span>
                 </label>
                 <div className="flex items-center gap-2.5 rounded-lg bg-onboarding-inputBackground px-3 py-2.5">
                   <input
                     type="text"
-                    value={formData.licenseNumber}
-                    onChange={(e) => handleLicenseChange(e.target.value)}
+                    {...register("licenseNumber")}
                     className={`flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 font-mono ${
                       errors.licenseNumber ? "text-red-600" : ""
                     }`}
@@ -176,7 +226,9 @@ export function ProfessionalProfile() {
                   />
                 </div>
                 {errors.licenseNumber && (
-                  <p className="text-sm text-red-600">{errors.licenseNumber}</p>
+                  <p className="text-sm text-red-600">
+                    {errors.licenseNumber.message}
+                  </p>
                 )}
               </div>
 
@@ -195,35 +247,28 @@ export function ProfessionalProfile() {
 
               {/* Years of Experience */}
               <div className="space-y-3">
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-neutral-500 flex items-center space-x-2">
+                <label className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500 flex items-center space-x-2">
                   <Stethoscope className="h-4 w-4" />
                   <span>Years of Experience</span>
                 </label>
                 <div className="flex items-center gap-2.5 rounded-lg bg-onboarding-inputBackground px-3 py-2.5">
                   <select
-                    value={formData.yearsOfExperience}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        yearsOfExperience: e.target.value,
-                      }))
-                    }
+                    {...register("yearsOfExperience")}
                     className={`flex-1 bg-transparent text-sm text-neutral-800 outline-none ${
                       errors.yearsOfExperience ? "text-red-600" : ""
                     }`}
                   >
                     <option value="">Select experience level</option>
-                    <option value="0-1">0-1 years (Fresh Graduate)</option>
-                    <option value="2-5">2-5 years</option>
-                    <option value="6-10">6-10 years</option>
-                    <option value="11-15">11-15 years</option>
-                    <option value="16-20">16-20 years</option>
-                    <option value="20+">20+ years</option>
+                    {experienceLevels.map((level) => (
+                      <option key={level} value={level}>
+                        {experienceLabels[level]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 {errors.yearsOfExperience && (
                   <p className="text-sm text-red-600">
-                    {errors.yearsOfExperience}
+                    {errors.yearsOfExperience.message}
                   </p>
                 )}
               </div>
@@ -238,88 +283,40 @@ export function ProfessionalProfile() {
                   selections allowed)
                 </p>
 
-                <div className="space-y-3">
-                  {/* First Row */}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("general-practice")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("general-practice")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      General Practice ✓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("surgery")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("surgery")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      Surgery
-                    </button>
-                  </div>
-
-                  {/* Second Row */}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("pediatrics")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("pediatrics")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      Pediatrics
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("nursing")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("nursing")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      Nursing
-                    </button>
-                  </div>
-
-                  {/* Third Row */}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("anesthesiology")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("anesthesiology")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      Anesthesiology
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleSpecialty("other")}
-                      className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
-                        formData.specialties.includes("other")
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      + Other
-                    </button>
-                  </div>
-                </div>
-
+                <Controller
+                  control={control}
+                  name="specialties"
+                  render={({ field }) => (
+                    <div className="flex flex-wrap gap-3">
+                      {clinicalSpecialties.map((id) => {
+                        const isSelected = field.value.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => {
+                              const next = isSelected
+                                ? field.value.filter((s) => s !== id)
+                                : [...field.value, id];
+                              field.onChange(next);
+                            }}
+                            className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
+                              isSelected
+                                ? "bg-teal-500 text-white border-teal-500"
+                                : "bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300"
+                            }`}
+                          >
+                            {specialtyLabels[id]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                />
                 {errors.specialties && (
-                  <p className="text-sm text-red-600">{errors.specialties}</p>
+                  <p className="text-sm text-red-600">
+                    {errors.specialties.message}
+                  </p>
                 )}
               </div>
 
@@ -379,14 +376,30 @@ export function ProfessionalProfile() {
                 </div>
               </div>
 
+              {profileMutation.isError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {profileMutation.error?.message ||
+                    "Unable to complete your profile. Please try again."}
+                </div>
+              )}
+
+              {!localStorage.getItem("clinicianId") && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  Unable to complete registration. Please verify your email
+                  first.
+                </div>
+              )}
+
               {/* Continue Button */}
               <Button
                 type="submit"
-                disabled={isLoading}
-                isLoading={isLoading}
+                disabled={profileMutation.isPending}
+                isLoading={profileMutation.isPending}
                 className="w-full rounded-lg bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue py-3 text-sm font-semibold uppercase tracking-widest text-white transition-all shadow-md hover:shadow-lg"
               >
-                {isLoading ? "Verifying Profile..." : "Verify & Continue"}
+                {profileMutation.isPending
+                  ? "Verifying Profile..."
+                  : "Verify & Continue"}
               </Button>
 
               {/* Skip Option */}

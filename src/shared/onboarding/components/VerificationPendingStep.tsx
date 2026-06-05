@@ -7,6 +7,8 @@ import { OnboardingNavbar } from "./OnboardingNavbar";
 export function VerificationPendingStep() {
   const navigate = useNavigate();
   const basePath = useRoleBasePath();
+  const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+  const institutionName = userData.fullName || userData.hospitalName || "your institution";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#e6f2f8]">
@@ -32,7 +34,7 @@ export function VerificationPendingStep() {
             Verification Pending
           </h1>
           <p className="mb-4 text-base font-semibold text-secondary-700">
-            Your hospital is under review
+            {institutionName.charAt(0).toUpperCase() + institutionName.slice(1)} is under review
           </p>
           <p className="mb-7 text-sm leading-relaxed text-neutral-500">
             We'll verify your credentials within 24-48 hours. We'll notify you
@@ -42,9 +44,7 @@ export function VerificationPendingStep() {
 
           <Button
             className="w-full bg-secondary-700 py-3 text-sm font-bold uppercase tracking-widest hover:bg-secondary-800"
-            onClick={() =>
-              navigate(`${basePath}/onboarding/accreditation-granted`)
-            }
+            onClick={() => navigate(`${basePath}/onboarding/accreditation-granted`)}
           >
             Go to Dashboard
           </Button>
@@ -102,7 +102,7 @@ export function VerificationPendingStep() {
 
       <footer className="absolute bottom-4 left-0 right-0 text-center">
         <p className="text-xs text-neutral-400">
-          Lagos University Teaching Hospital Institutional Security © 2024
+          Institutional Security © 2024
         </p>
       </footer>
     </div>

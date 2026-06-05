@@ -37,6 +37,8 @@ const features = [
 
 export function AccreditationGrantedStep() {
   const basePath = useRoleBasePath();
+  const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+  const institutionName = userData.fullName || userData.hospitalName || "Your Institution";
 
   return (
     <div className="min-h-screen bg-[#F3FAFF]">
@@ -64,11 +66,10 @@ export function AccreditationGrantedStep() {
             Accreditation Granted
           </h1>
 
-          {/* Subtitle */}
+          {/* Subtitle with dynamic institution name */}
           <p className="mb-8 text-sm leading-relaxed text-onboarding-textSecondary">
-            Lagos University Teaching Hospital is now a verified institution on
-            the NexusCare platform. Your clinical standards have been
-            successfully validated.
+            {institutionName} is now a verified institution on the NexusCare
+            platform. Your clinical standards have been successfully validated.
           </p>
 
           {/* Feature cards 2×2 */}
@@ -110,25 +111,10 @@ export function AccreditationGrantedStep() {
             </span>
           </div>
 
-          {/* Avatar stack + trust count */}
+          {/* Trust count */}
           <div className="flex items-center gap-3">
-            {/* Stacked avatars */}
-            <div className="flex -space-x-2">
-              {[
-                "/avatars/doc1.jpg",
-                "/avatars/doc2.jpg",
-                "/avatars/doc3.jpg",
-              ].map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt=""
-                  className="h-8 w-8 rounded-full border-2 border-white object-cover"
-                />
-              ))}
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-secondary-600 text-[10px] font-bold text-white">
-                +12k
-              </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-600 text-[10px] font-bold text-white">
+              ✓
             </div>
             <span className="text-sm text-neutral-600">
               Trusted by 12,000+ Nigerian Healthcare Professionals

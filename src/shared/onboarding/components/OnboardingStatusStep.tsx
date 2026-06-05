@@ -16,6 +16,8 @@ import { StepTracker } from "@/shared/components/ui/StepTracker";
 export function OnboardingStatusStep() {
   const navigate = useNavigate();
   const basePath = useRoleBasePath();
+  const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+  const institutionName = userData.fullName || userData.hospitalName || "Your Institution";
 
   return (
     <div className="min-h-screen bg-[#F3FAFF]">
@@ -51,7 +53,7 @@ export function OnboardingStatusStep() {
             <p className="mb-5 max-w-md text-neutral-600">
               Excellent work. Your professional documents and institutional
               credentials have been successfully uploaded and are now under
-              clinical review by our administrative team.
+              review by our administrative team.
             </p>
 
             <div className="mb-5 flex items-center gap-3 rounded-lg bg-secondary-50 px-4 py-3">
@@ -67,9 +69,7 @@ export function OnboardingStatusStep() {
             <div className="flex flex-wrap gap-3">
               <Button
                 className="rounded-lg bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue py-3 text-sm font-semibold uppercase tracking-widest"
-                onClick={() =>
-                  navigate(`${basePath}/onboarding/accreditation-granted`)
-                }
+                onClick={() => navigate(`${basePath}/onboarding/accreditation-granted`)}
               >
                 Explore Dashboard →
               </Button>
@@ -95,7 +95,7 @@ export function OnboardingStatusStep() {
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2 text-secondary-700">
                   <Mail className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span>support@luthstaffing.gov</span>
+                  <span>support@nexuscare.ng</span>
                 </div>
                 <div className="flex items-center gap-2 text-secondary-700">
                   <Phone className="h-3.5 w-3.5 flex-shrink-0" />
@@ -109,7 +109,7 @@ export function OnboardingStatusStep() {
                 Institutional Quality
               </p>
               <p className="text-base font-semibold leading-snug">
-                Ensuring the highest standards for LUTH medical staff.
+                Ensuring the highest standards for {institutionName}.
               </p>
             </div>
           </div>
@@ -150,8 +150,7 @@ export function OnboardingStatusStep() {
         </div>
 
         <p className="mt-6 text-center text-xs text-neutral-400">
-          © 2024 Lagos University Teaching Hospital • Staffing &amp; Onboarding
-          Portal
+          © 2024 NexusCare • Staffing &amp; Onboarding Portal
         </p>
       </div>
     </div>
