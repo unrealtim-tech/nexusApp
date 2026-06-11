@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building, FileText, UploadCloud } from "lucide-react";
+import { Building, FileText, Mail, UploadCloud } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 import {
@@ -111,6 +111,46 @@ export function HospitalRegistrationStep() {
                     <p className="text-xs text-red-600">{errors.yearEstablished.message}</p>
                   )}
                 </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-neutral-600">
+                    Postal Code
+                    <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-neutral-400">
+                      (optional)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    {...register("postalCode")}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setValue("postalCode", raw);
+                    }}
+                    className="w-full rounded-2xl border border-transparent bg-white px-4 py-3 text-sm text-onboarding-textPrimary outline-none transition focus:border-onboarding-primaryBlue focus:ring-2 focus:ring-onboarding-primaryBlue/10"
+                    placeholder="e.g. 100001"
+                  />
+                  {errors.postalCode && (
+                    <p className="text-xs text-red-600">{errors.postalCode.message}</p>
+                  )}
+                </div>
+                <div className="space-y-3 sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-neutral-600">
+                    Hospital Email Address
+                  </label>
+                  <div className="flex items-center gap-3 rounded-2xl border border-transparent bg-white px-4 py-3 transition focus-within:border-onboarding-primaryBlue focus-within:ring-2 focus-within:ring-onboarding-primaryBlue/10">
+                    <Mail className="h-4 w-4 shrink-0 text-onboarding-primaryBlue" />
+                    <input
+                      type="email"
+                      {...register("email")}
+                      className="w-full bg-transparent text-sm text-onboarding-textPrimary outline-none placeholder:text-neutral-400"
+                      placeholder="e.g. contact@stnicholas.com"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-xs text-red-600">{errors.email.message}</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -137,13 +177,32 @@ export function HospitalRegistrationStep() {
                   )}
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-neutral-600">
-                    About the Hospital
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold uppercase tracking-[0.35em] text-neutral-600">
+                      About the Hospital
+                    </label>
+                    <span
+                      className={`text-[11px] font-medium tabular-nums ${
+                        (aboutHospital?.length ?? 0) === 0
+                          ? "text-neutral-400"
+                          : (aboutHospital?.length ?? 0) < 20
+                          ? "text-amber-500"
+                          : (aboutHospital?.length ?? 0) >= 700
+                          ? "text-red-500"
+                          : "text-emerald-600"
+                      }`}
+                    >
+                      {aboutHospital?.length ?? 0}
+                      <span className="text-neutral-300">/750</span>
+                      {(aboutHospital?.length ?? 0) < 20 && (
+                        <span className="ml-1 text-amber-500">(min 20)</span>
+                      )}
+                    </span>
+                  </div>
                   <textarea
                     {...register("aboutHospital")}
                     rows={5}
-                    className="w-full rounded-3xl border border-transparent bg-white px-4 py-3 text-sm text-onboarding-textPrimary outline-none transition focus:border-onboarding-primaryBlue focus:ring-2 focus:ring-onboarding-primaryBlue/10"
+                    className="mt-2 w-full rounded-3xl border border-transparent bg-white px-4 py-3 text-sm text-onboarding-textPrimary outline-none transition focus:border-onboarding-primaryBlue focus:ring-2 focus:ring-onboarding-primaryBlue/10"
                     placeholder="Provide a brief overview of specialties, mission, and patient care philosophy..."
                   />
                   {errors.aboutHospital && (
@@ -232,7 +291,14 @@ export function HospitalRegistrationStep() {
                   </p>
                 </div>
                 <div className="flex h-10 min-w-[40px] items-center justify-center rounded-2xl bg-onboarding-primaryBlue/5 text-onboarding-primaryBlue text-xs font-semibold">
-                  {facilityName ? facilityName.charAt(0) : "H"}
+                  {facilityName
+                    ? (() => {
+                        const words = facilityName.trim().split(/\s+/);
+                        return words.length >= 2
+                          ? words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase()
+                          : words[0].charAt(0).toUpperCase();
+                      })()
+                    : "H"}
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-onboarding-textSecondary">

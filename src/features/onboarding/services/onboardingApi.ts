@@ -65,20 +65,20 @@ export interface HospitalRegistrationRequest {
   registration_number: string;
   address: {
     line1: string;
-    line2?: string | null;
+    line2: string;     // backend expects string, send "" when absent
     city: string;
     state: string;
     postal_code: string;
     country: string;
   };
-  payment_details?: {
-    method_type: "BankAccount";
+  payment_details: {
+    method_type: "bankaccount" | "card";
     account_number: string;
     bank_code: string;
-    card_number?: string | null;
-    expiry_month?: number | null;
-    expiry_year?: number | null;
-    cvv?: string | null;
+    card_number: string;   // send "" for bank-account flow
+    expiry_month: number;  // send 0 for bank-account flow
+    expiry_year: number;   // send 0 for bank-account flow
+    cvv: string;           // send "" for bank-account flow
   };
 }
 

@@ -2,6 +2,78 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { normalizeRole } from "../utils/authUtils";
 
+// ---------------------------------------------------------------------------
+// PublicRoute – redirect authenticated users away from guest-only pages
+// (login, register, onboarding, etc.) to their role-specific dashboard.
+// ---------------------------------------------------------------------------
+interface PublicRouteProps {
+  children: React.ReactNode;
+}
+
+interface UserData {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  loginAt?: string;
+  createdAt?: string;
+}
+
+function getDashboardForRole(role: string | null): string {
+  if (role === "medical-staff") return "/medical-staff/dashboard";
+  if (role === "hospital-admin" || role === "super-admin")
+    return "/hospital/dashboard";
+  return "/auth/login";
+}
+
+export function PublicRoute({ children }: PublicRouteProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const authToken = localStorage.getItem("authToken");
+    const userDataStr = localStorage.getItem("userData");
+
+    if (authToken && userDataStr) {
+      try {
+        const isMockToken =
+          authToken.startsWith("token_") ||
+          authToken.startsWith("temp_token_");
+        const isJwtToken = authToken.split(".").length === 3;
+
+        if (isMockToken || isJwtToken) {
+          const userData: UserData = JSON.parse(userDataStr);
+          const normalizedRole = normalizeRole(userData.role);
+          setRedirectTo(getDashboardForRole(normalizedRole));
+        }
+      } catch {
+        // Corrupt data – clear it and let the user stay on the public page
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
+      }
+    }
+
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
+          <p className="mt-2 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  return <>{children}</>;
+}
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: "medical-staff" | "hospital-admin";

@@ -72,13 +72,18 @@ export const authUtils = {
     localStorage.setItem("userData", JSON.stringify(userData));
   },
 
-  // Clear auth data (logout)
+  // Clear auth data (logout) — also purges Zustand-persist store keys
   clearAuth(): void {
+    // Auth / session keys
     localStorage.removeItem("authToken");
     localStorage.removeItem("userData");
     localStorage.removeItem("pendingUser");
     localStorage.removeItem("pendingSignUp");
     localStorage.removeItem("pendingEmail");
+
+    // Zustand persist store keys (mirrors store `name` options)
+    localStorage.removeItem("hospital-onboarding");
+    localStorage.removeItem("hospital-setup");
   },
 
   // Get redirect path based on role

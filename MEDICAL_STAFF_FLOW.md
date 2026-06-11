@@ -119,7 +119,7 @@ navigate(`/medical-staff/consultation/${appointmentId}/${patientId}`);
 <ConsultationView 
   appointmentId="APT001" 
   patientId="P002" 
-  onClose={() => navigate('/medical-staff/dashboard')} 
+  onClose={() =navigate('/medical-staff/dashboard')} 
 />
 ```
 

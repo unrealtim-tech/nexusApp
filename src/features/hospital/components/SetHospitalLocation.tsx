@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { MapPin, Minus, Plus, Search, ShieldCheck } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
-import { useHospitalSetup } from "../hooks/useHospitalSetup";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 
 const DEFAULT_COORDS = { lat: 6.4965, lng: 3.3764 };
 
 export function SetHospitalLocation() {
-  const { setLocationDone } = useHospitalSetup();
+  const { setLocationDone } = useHospitalOnboardingStore();
   const [coords] = useState(DEFAULT_COORDS);
   const [search, setSearch] = useState("");
 

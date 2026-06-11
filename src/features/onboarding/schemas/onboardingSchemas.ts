@@ -28,6 +28,15 @@ export const hospitalRegistrationSchema = z.object({
     .string()
     .min(20, "Provide a short overview of the hospital")
     .max(750, "Please keep the overview under 750 characters"),
+  postalCode: z
+    .string()
+    .regex(/^\d{5,6}$/, "Enter a valid 5–6 digit postal code")
+    .optional()
+    .or(z.literal("")),
+  email: z
+    .string()
+    .min(1, "Email address is required")
+    .email("Enter a valid email address"),
 });
 
 export type HospitalRegistrationFormData = z.infer<
@@ -45,8 +54,8 @@ export const hospitalLocationSchema = z.object({
     .number()
     .min(100, "Radius must be at least 100 meters")
     .max(5000, "Radius must be 5km or less"),
-  latitude: z.string().min(1, "GPS latitude is required"),
-  longitude: z.string().min(1, "GPS longitude is required"),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
 });
 
 export type HospitalLocationFormData = z.infer<typeof hospitalLocationSchema>;

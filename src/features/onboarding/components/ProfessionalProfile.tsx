@@ -14,7 +14,7 @@ import {
   type ProfessionalProfileFormData,
 } from "@/features/onboarding/schemas/onboardingSchemas";
 import type { ClinicalSpecialty } from "@/features/onboarding/services/onboardingApi";
-import { useRoleBasePath } from "@/shared/onboarding/hooks/useRoleBasePath";
+
 
 function mapSelectedSpecialtyToBackend(specialtyId: string): ClinicalSpecialty {
   switch (specialtyId) {
@@ -53,7 +53,6 @@ const experienceLabels: Record<(typeof experienceLevels)[number], string> = {
 
 export function ProfessionalProfile() {
   const navigate = useNavigate();
-  const basePath = useRoleBasePath();
   const profileMutation = useClinicianProfile();
 
   const {
@@ -75,27 +74,30 @@ export function ProfessionalProfile() {
 
   const onSubmit = async (data: ProfessionalProfileFormData) => {
     const clinicianId = localStorage.getItem("clinicianId");
-    if (!clinicianId) {
-      return;
+
+    // Always persist the data locally so PayoutSetup can read it.
+    localStorage.setItem("professionalData", JSON.stringify(data));
+
+    // If a clinicianId exists (user came through the OTP path) also call the API.
+    if (clinicianId) {
+      try {
+        await profileMutation.mutateAsync({
+          clinicianId,
+          payload: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            role: data.role,
+            license_number: data.licenseNumber,
+            specialty: mapSelectedSpecialtyToBackend(data.specialties[0] || "other"),
+          },
+        });
+      } catch {
+        // Error state managed by mutation — do not navigate on API failure.
+        return;
+      }
     }
 
-    try {
-      await profileMutation.mutateAsync({
-        clinicianId,
-        payload: {
-          first_name: data.firstName,
-          last_name: data.lastName,
-          role: data.role,
-          license_number: data.licenseNumber,
-          specialty: mapSelectedSpecialtyToBackend(data.specialties[0] || "other"),
-        },
-      });
-
-      localStorage.setItem("professionalData", JSON.stringify(data));
-      navigate(`${basePath}/onboarding/payout-setup`);
-    } catch {
-      // Error state managed by mutation
-    }
+    navigate("/auth/onboarding/payout-setup");
   };
 
   const handleClose = () => {
@@ -380,13 +382,6 @@ export function ProfessionalProfile() {
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {profileMutation.error?.message ||
                     "Unable to complete your profile. Please try again."}
-                </div>
-              )}
-
-              {!localStorage.getItem("clinicianId") && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                  Unable to complete registration. Please verify your email
-                  first.
                 </div>
               )}
 

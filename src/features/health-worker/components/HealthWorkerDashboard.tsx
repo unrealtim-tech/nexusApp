@@ -11,6 +11,8 @@ import { AITranscriberView } from "./AITranscriberView";
 import { HandoverView } from "./HandoverView";
 import { ClockInVerification } from "./ClockInVerification";
 import { authUtils } from "@/features/auth/components";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
+import { useHospitalSetup } from "@/features/hospital/hooks/useHospitalSetup";
 import {
   Clock,
   Star,
@@ -206,8 +208,17 @@ export function HealthWorkerDashboard({
     setShiftStatus(shiftStatus === "off-duty" ? "available" : "off-duty");
   };
 
+  const resetHospitalOnboarding = useHospitalOnboardingStore(
+    (s) => s.resetHospitalOnboarding,
+  );
+  const resetHospitalSetup = useHospitalSetup((s) => s.reset);
+
   const handleLogout = () => {
+    // Clear localStorage (auth keys + Zustand persist keys)
     authUtils.clearAuth();
+    // Reset in-memory Zustand store state
+    resetHospitalOnboarding();
+    resetHospitalSetup();
     navigate("/auth/login");
   };
 

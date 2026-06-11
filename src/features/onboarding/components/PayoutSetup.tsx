@@ -79,13 +79,9 @@ export function PayoutSetup() {
 
   const handleComplete = async (data: PayoutSetupFormData) => {
     try {
-      if (selectedRole === "health-worker") {
-        if (!clinicianId) {
-          throw new Error(
-            "Clinician account not found. Please restart verification.",
-          );
-        }
-
+      // Only call the bank account API if a clinicianId is available
+      // (user came through the OTP-verified registration path).
+      if (clinicianId) {
         await bankAccountMutation.mutateAsync({
           clinicianId,
           payload: {
@@ -297,12 +293,6 @@ export function PayoutSetup() {
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {bankAccountMutation.error?.message ||
                     "Unable to link account. Please try again."}
-                </div>
-              )}
-
-              {!clinicianId && selectedRole === "health-worker" && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                  Unable to complete registration. Please verify your email first.
                 </div>
               )}
 

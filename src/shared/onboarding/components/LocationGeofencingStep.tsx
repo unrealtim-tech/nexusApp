@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { MapPin, Globe2, CheckCircle, Compass } from "lucide-react";
+import { MapPin, Globe2, Compass } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 import {
@@ -180,11 +180,16 @@ export function LocationGeofencingStep() {
                 <div className="flex items-center gap-3">
                   <Compass className="h-5 w-5 text-onboarding-primaryBlue" />
                   <div>
-                    <p className="text-sm font-semibold text-onboarding-textPrimary">
-                      GPS Coordinates
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-onboarding-textPrimary">
+                        GPS Coordinates
+                      </p>
+                      <span className="rounded-full bg-onboarding-primaryBlue/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-onboarding-primaryBlue">
+                        Optional
+                      </span>
+                    </div>
                     <p className="text-xs text-onboarding-textSecondary">
-                      Verify coordinates for the selected location.
+                      Verify coordinates now or skip — you can always add them later.
                     </p>
                   </div>
                 </div>
@@ -218,7 +223,7 @@ export function LocationGeofencingStep() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isSubmitting || !latitude || !longitude}
+                    disabled={isSubmitting}
                     className="w-full rounded-2xl bg-white text-onboarding-primaryBlue ring-1 ring-onboarding-primaryBlue/15 py-3 text-sm font-semibold hover:bg-onboarding-primaryBlue/5"
                   >
                     Confirm Location
@@ -227,11 +232,6 @@ export function LocationGeofencingStep() {
                 <p className="text-xs text-onboarding-textSecondary">
                   {locationStatus}
                 </p>
-                {(errors.latitude || errors.longitude) && (
-                  <p className="text-xs text-red-600">
-                    GPS coordinates are required to continue.
-                  </p>
-                )}
               </div>
             </div>
           </form>

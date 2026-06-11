@@ -6,4 +6,5 @@ export { PhoneLogin } from "./PhoneLogin";
 export { OtpVerify } from "./OtpVerify";
 export { SplashScreen } from "./SplashScreen";
 export { ProtectedRoute } from "./ProtectedRoute";
+export { PublicRoute } from "./ProtectedRoute";
 export { authUtils } from "../utils/authUtils";

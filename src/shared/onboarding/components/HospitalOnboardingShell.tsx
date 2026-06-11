@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Building,
+  CheckCircle2,
   CreditCard,
   HelpCircle,
   MapPin,
@@ -9,7 +10,9 @@ import {
 } from "lucide-react";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { useRoleBasePath } from "@/shared/onboarding/hooks/useRoleBasePath";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 import { cn } from "@/shared/utils/cn";
+import { authUtils } from "@/features/auth/utils/authUtils";
 
 interface OnboardingStepItem {
   slug: string;
@@ -45,6 +48,13 @@ const ONBOARDING_STEPS: OnboardingStepItem[] = [
   },
 ];
 
+// Steps that get locked once isSubmitted = true (all except verification-status itself)
+const LOCKABLE_STEP_SLUGS = new Set([
+  "registration",
+  "location-geofencing",
+  "financial-setup",
+]);
+
 interface HospitalOnboardingShellProps {
   children: ReactNode;
   activeStep: number;
@@ -60,6 +70,7 @@ export function HospitalOnboardingShell({
 }: HospitalOnboardingShellProps) {
   const basePath = useRoleBasePath();
   const onboardingBase = `${basePath}/onboarding`;
+  const { isSubmitted } = useHospitalOnboardingStore();
 
   return (
     <div className="min-h-screen bg-onboarding-mainBackground">
@@ -86,7 +97,7 @@ export function HospitalOnboardingShell({
                 </p>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EAF3FF]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue"
+                    className="h-full rounded-full bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue transition-all duration-500"
                     style={{
                       width: `${((activeStep + 1) / ONBOARDING_STEPS.length) * 100}%`,
                     }}
@@ -97,14 +108,48 @@ export function HospitalOnboardingShell({
               <nav className="space-y-2">
                 {ONBOARDING_STEPS.map((step, index) => {
                   const Icon = step.icon;
+                  const isLocked = isSubmitted && LOCKABLE_STEP_SLUGS.has(step.slug);
+                  const isCompleted = isSubmitted && LOCKABLE_STEP_SLUGS.has(step.slug);
+                  const isActive = activeStep === index;
+
+                  if (isLocked) {
+                    // Render a non-interactive div — greyed out, green badge
+                    return (
+                      <div
+                        key={step.slug}
+                        aria-disabled="true"
+                        className="flex items-start gap-4 rounded-2xl border border-neutral-100 bg-neutral-50 p-4 opacity-60 cursor-not-allowed select-none"
+                      >
+                        <div className="relative mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white">
+                          <Icon className="h-5 w-5" />
+                          {/* Green success badge */}
+                          <CheckCircle2 className="absolute -right-1.5 -top-1.5 h-4 w-4 rounded-full bg-white text-emerald-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-neutral-500">
+                              {step.title}
+                            </p>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                              Done
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-neutral-400">
+                            {step.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <NavLink
                       key={step.slug}
                       to={`${onboardingBase}/${step.slug}`}
-                      className={({ isActive }) =>
+                      className={({ isActive: navActive }) =>
                         cn(
                           "group flex items-start gap-4 rounded-2xl border p-4 transition",
-                          isActive
+                          navActive
                             ? "border-onboarding-primaryBlue bg-onboarding-fadedGreen shadow-sm"
                             : "border-neutral-200 bg-white hover:border-onboarding-primaryBlue/50",
                         )
@@ -112,8 +157,8 @@ export function HospitalOnboardingShell({
                     >
                       <div
                         className={cn(
-                          "mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl",
-                          activeStep === index
+                          "mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl",
+                          isActive
                             ? "bg-onboarding-primaryBlue text-white"
                             : "bg-onboarding-primaryBlue/10 text-onboarding-primaryBlue",
                         )}
@@ -179,6 +224,9 @@ export function HospitalOnboardingShell({
 }
 
 function HospitalNavbarWrapper() {
+  const user = authUtils.getCurrentUser();
+  const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "";
+
   return (
     <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
       <NexusCareLogo />
@@ -211,9 +259,11 @@ function HospitalNavbarWrapper() {
         >
           <HelpCircle className="h-5 w-5" />
         </button>
-        <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-onboarding-primaryBlue text-white shadow-sm font-semibold">
-          A
-        </div>
+        {user && (
+          <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-onboarding-primaryBlue text-white shadow-sm font-semibold">
+            {initial}
+          </div>
+        )}
       </div>
     </div>
   );

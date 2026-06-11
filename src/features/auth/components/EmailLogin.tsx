@@ -76,9 +76,7 @@ export function EmailLogin() {
   };
 
   const handleCreateSelect = async (role: CreateRole) => {
-    // Persist selection
     localStorage.setItem("selectedRole", role);
-    // localStorage.setItem("pendingEmail", email.trim());
 
     setShowCreateModal(false);
 
@@ -88,18 +86,18 @@ export function EmailLogin() {
     }
 
     if (role === "hospital") {
-      // const tempAuthToken = `temp_token_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      // const tempUserData = {
-      //   id: `user_${Date.now()}`,
-      //   fullName: "Hospital Administrator",
-      //   email: email.trim(),
-      //   role: "hospital-admin",
-      //   onboardingComplete: false,
-      //   createdAt: new Date().toISOString(),
-      // };
+      const tempAuthToken = `temp_token_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const tempUserData = {
+        id: `user_${Date.now()}`,
+        fullName: "Hospital Administrator",
+        email: email.trim(),
+        role: "hospital-admin",
+        onboardingComplete: false,
+        createdAt: new Date().toISOString(),
+      };
 
-      // localStorage.setItem("authToken", tempAuthToken);
-      // localStorage.setItem("userData", JSON.stringify(tempUserData));
+      localStorage.setItem("authToken", tempAuthToken);
+      localStorage.setItem("userData", JSON.stringify(tempUserData));
 
       navigate("/hospital/onboarding/registration");
     }

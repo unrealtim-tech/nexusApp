@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { usePaystackPayment } from "react-paystack";
 import { Button } from "@/shared/components/ui/Button";
-import { useHospitalSetup } from "../hooks/useHospitalSetup";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 
 const PAYSTACK_PUBLIC_KEY =
   import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ?? "pk_test_placeholder";
@@ -29,56 +29,56 @@ function formatExpiry(value: string) {
 }
 
 export function AddPaymentMethod() {
-  const { setPaymentDone, reset } = useHospitalSetup();
+  const { setPaymentDone, resetHospitalOnboarding } = useHospitalOnboardingStore();
 
-  const [form, setForm] = useState({
-    cardholderName: "Dr. Adeyemi Michael",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-  });
-  const [showCvv, setShowCvv] = useState(false);
+   const [form, setForm] = useState({
+     cardholderName: "Dr. Adeyemi Michael",
+     cardNumber: "",
+     expiry: "",
+     cvv: "",
+   });
+   const [showCvv, setShowCvv] = useState(false);
 
-  const config = {
-    reference: `hosp_${Date.now()}`,
-    email: "billing@hospital.org",
-    amount: 0,
-    publicKey: PAYSTACK_PUBLIC_KEY,
-    label: "Hospital Billing Setup",
-    channels: ["card"] as (
-      | "card"
-      | "bank"
-      | "ussd"
-      | "qr"
-      | "mobile_money"
-      | "bank_transfer"
-    )[],
-  };
+   const config = {
+     reference: `hosp_${Date.now()}`,
+     email: "billing@hospital.org",
+     amount: 0,
+     publicKey: PAYSTACK_PUBLIC_KEY,
+     label: "Hospital Billing Setup",
+     channels: ["card"] as (
+       | "card"
+       | "bank"
+       | "ussd"
+       | "qr"
+       | "mobile_money"
+       | "bank_transfer"
+     )[],
+   };
 
-  usePaystackPayment(config);
+   usePaystackPayment(config);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setPaymentDone();
-    // initializePayment({
-    //   onSuccess: () => setPaymentDone(),
-    //   onClose: () => {},
-    // });
-  }
+   function handleSubmit(e: React.FormEvent) {
+     e.preventDefault();
+     setPaymentDone();
+     // initializePayment({
+     //   onSuccess: () => setPaymentDone(),
+     //   onClose: () => {},
+     // });
+   }
 
-  return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-10">
-      {/* Back */}
-      <div className="w-full max-w-md mb-4">
-        <button
-          type="button"
-          onClick={reset}
-          className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to location
-        </button>
-      </div>
+   return (
+     <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-10">
+       {/* Back */}
+       <div className="w-full max-w-md mb-4">
+         <button
+           type="button"
+           onClick={resetHospitalOnboarding}
+           className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
+         >
+           <ArrowLeft className="h-4 w-4" />
+           Back to location
+         </button>
+       </div>
 
       {/* Title */}
       <h1 className="mb-1 text-3xl font-bold text-neutral-900">

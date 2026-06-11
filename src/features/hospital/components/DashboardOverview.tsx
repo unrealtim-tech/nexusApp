@@ -1,4 +1,4 @@
-import { useHospitalSetup } from "../hooks/useHospitalSetup";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
 import { SetHospitalLocation } from "./SetHospitalLocation";
 import { AddPaymentMethod } from "./AddPaymentMethod";
 import { ShiftFillRateCard } from "./ShiftFillRateCard";
@@ -7,7 +7,7 @@ import { OpenShiftsSection } from "./OpenShiftsSection";
 import { WorkforcePool } from "./WorkforcePool";
 
 export function DashboardOverview() {
-  const { locationSet, paymentSet } = useHospitalSetup();
+  const { locationSet, paymentSet } = useHospitalOnboardingStore();
 
   if (!locationSet) {
     return <SetHospitalLocation />;

@@ -17,6 +17,8 @@ import { cn } from "@/shared/utils/cn";
 import { AppProfile } from "@/types";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { authUtils } from "@/features/auth/utils/authUtils";
+import { useHospitalOnboardingStore } from "@/features/onboarding/hooks/useHospitalOnboardingStore";
+import { useHospitalSetup } from "@/features/hospital/hooks/useHospitalSetup";
 
 interface NavigationItem {
   name: string;
@@ -92,9 +94,17 @@ export function Sidebar({ isOpen, onClose, profile }: SidebarProps) {
   const navigationItems = profileNavigationItems[profile];
   const bottomNavigationItems = profileBottomNavigationItems[profile];
   const basePath = profileBasePath[profile];
+  const resetHospitalOnboarding = useHospitalOnboardingStore(
+    (s) => s.resetHospitalOnboarding,
+  );
+  const resetHospitalSetup = useHospitalSetup((s) => s.reset);
 
   const handleLogout = () => {
+    // Clear localStorage (auth keys + Zustand persist keys)
     authUtils.clearAuth();
+    // Reset in-memory Zustand store state
+    resetHospitalOnboarding();
+    resetHospitalSetup();
     navigate("/auth/login");
     onClose(); // Close sidebar after logout
   };

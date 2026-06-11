@@ -2,7 +2,10 @@ import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 import { RoleLayout } from "@/layouts/RoleLayout";
 import type { AppProfile } from "@/types";
-import { buildOnboardingRoutes } from "./roles/onboarding.routes";
+import {
+  buildOnboardingRoutes,
+  buildHospitalOnboardingStandaloneRoutes,
+} from "./roles/onboarding.routes";
 import {
   hospitalPageRoutes,
   hospitalStandaloneRoutes,
@@ -18,6 +21,7 @@ function buildRoleTree(
   profile: AppProfile,
   pageRoutes: RouteObject[],
   standaloneRoutes: RouteObject[] = [],
+  includeOnboarding = true,
 ): RouteObject {
   const requiredRole =
     profile === "medical-staff" ? "medical-staff" : "hospital-admin";
@@ -32,7 +36,7 @@ function buildRoleTree(
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
 
-      ...buildOnboardingRoutes(profile),
+      ...(includeOnboarding ? buildOnboardingRoutes(profile) : []),
       ...standaloneRoutes,
 
       ...pageRoutes,
@@ -46,11 +50,16 @@ export const appRoutes: RouteObject[] = [
   ...authRoutes,
   ...adminRoutes,
 
+  // Hospital onboarding renders as bare full-screen pages — no sidebar/top nav.
+  // Must be listed before the RoleLayout tree so React Router matches them first.
+  ...buildHospitalOnboardingStandaloneRoutes("/hospital"),
+
   buildRoleTree(
     "/hospital",
     "hospital",
     hospitalPageRoutes,
     hospitalStandaloneRoutes,
+    false, // onboarding handled above, outside RoleLayout
   ),
   buildRoleTree("/medical-staff", "medical-staff", medicalStaffPageRoutes),
   buildRoleTree("/patient", "patient", patientPageRoutes),
