@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 import { RoleLayout } from "@/layouts/RoleLayout";
 import type { AppProfile } from "@/types";
@@ -15,9 +15,9 @@ import { ProtectedRoute } from "@/features/auth/components";
 import {
   HospitalDetailsStep,
   LocationGeofencingStep,
-  FinancialSetupStep,
   VerificationStatusStep,
 } from "@/features/hospital/onboarding/components";
+import { OnboardingProvider } from "@/features/hospital/onboarding/context/OnboardingContext";
 
 function buildRoleTree(
   basePath: string,
@@ -55,14 +55,18 @@ function buildRoleTree(
   return [...onboardingRoutes, protectedTree];
 }
 
-/** Hospital-specific onboarding routes with the new sidebar layout */
+/** Hospital-specific onboarding routes — wrapped in OnboardingProvider for shared form context */
 const hospitalOnboardingRoutes: RouteObject[] = [
-  // Canonical new routes
-  { path: "/hospital/onboarding/registration",        element: <HospitalDetailsStep /> },
-  { path: "/hospital/onboarding/location",            element: <LocationGeofencingStep /> },
-  { path: "/hospital/onboarding/financial-setup",     element: <FinancialSetupStep /> },
-  { path: "/hospital/onboarding/verification-status", element: <VerificationStatusStep /> },
-  // Redirect old slugs → new canonical slugs
+  {
+    // Layout route: provides OnboardingProvider to all child steps
+    element: <OnboardingProvider><Outlet /></OnboardingProvider>,
+    children: [
+      { path: "/hospital/onboarding/registration",        element: <HospitalDetailsStep /> },
+      { path: "/hospital/onboarding/location",            element: <LocationGeofencingStep /> },
+      { path: "/hospital/onboarding/verification-status", element: <VerificationStatusStep /> },
+    ],
+  },
+  // Redirect old slugs → new canonical slugs (outside provider — no form data needed)
   { path: "/hospital/onboarding/legal-verification",     element: <Navigate to="/hospital/onboarding/location" replace /> },
   { path: "/hospital/onboarding/onboarding-status",      element: <Navigate to="/hospital/onboarding/verification-status" replace /> },
   { path: "/hospital/onboarding/accreditation-granted",  element: <Navigate to="/hospital/onboarding/verification-status" replace /> },

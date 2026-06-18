@@ -5,87 +5,103 @@ import {
   ShieldCheck,
   MessageSquare,
   Mail,
-  Building2,
-  Banknote,
+  Phone,
   LayoutDashboard,
 } from "lucide-react";
 import { HospitalOnboardingLayout } from "./HospitalOnboardingLayout";
+import { useOnboarding } from "../context/OnboardingContext";
+import { authUtils } from "@/features/auth/utils/authUtils";
 
 export function VerificationStatusStep() {
   const navigate = useNavigate();
+  const { formData } = useOnboarding();
+
+  // Derive display values from context
+  const facilityName  = formData.hospitalName  || "—";
+  const facilityCity  = [formData.city, formData.state].filter(Boolean).join(", ") || "Nigeria";
+  const adminName     = [formData.adminFirstName, formData.adminLastName].filter(Boolean).join(" ") || "—";
+  const adminContact  = formData.email || authUtils.getCurrentUser()?.email || "—";
+  const adminPhone    = formData.phone || "—";
+
+  // Submission timestamp
+  const submittedAt = new Intl.DateTimeFormat("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
 
   return (
-    <HospitalOnboardingLayout activeStep={3}>
-      <div className="max-w-5xl mx-auto">
+    <HospitalOnboardingLayout activeStep={2}>
+      <div className="max-w-4xl mx-auto">
 
-        {/* ── Success banner ── */}
-        <div className="bg-gradient-to-br from-slate-100 to-blue-50 rounded-2xl px-8 py-8 mb-8 border border-blue-100 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-500 mb-3">
-            <Clock className="h-3.5 w-3.5" />
+        {/* ── Success banner — light blue gradient as in design ── */}
+        <div className="rounded-xl bg-gradient-to-br from-[#EBF4FF] via-[#DAE8F3] to-[#C8DFEF] border border-[#C8DFEF] px-7 py-6 mb-7">
+          {/* "Pending Review" chip */}
+          <div className="inline-flex items-center gap-1.5 bg-white/70 border border-[#C8DFEF] text-[#1A5888] text-[11px] font-semibold px-3 py-1 rounded-full mb-4">
+            <ShieldCheck className="h-3 w-3" />
             Pending Review
           </div>
-          <h1 className="text-3xl font-bold text-neutral-900 mb-3">
+
+          <h1 className="text-[24px] font-bold text-neutral-900 leading-snug mb-2">
             Application Submitted Successfully
           </h1>
-          <p className="text-sm text-neutral-600 max-w-lg leading-relaxed">
+          <p className="text-[13px] text-neutral-600 max-w-lg leading-relaxed">
             Thank you for completing the registration process. Our compliance team is currently
             reviewing your application. You will be notified once the review is complete.
           </p>
         </div>
 
         {/* ── Two-column grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-7">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_250px] gap-5">
 
           {/* LEFT: Review Timeline */}
-          <div className="bg-white rounded-2xl border border-gray-200 px-8 py-8 hover:border-teal-200/60 hover:shadow-md transition-all duration-200">
-            <h2 className="text-base font-semibold text-neutral-800 mb-8">Review Timeline</h2>
+          <div className="bg-white rounded-xl border border-gray-200 px-6 py-6">
+            <h2 className="text-[15px] font-semibold text-neutral-800 mb-7">Review Timeline</h2>
 
-            <ol className="relative">
-              {/* Timeline item 1 — done */}
-              <li className="flex gap-5 mb-9">
+            <ol>
+              {/* Item 1 — done */}
+              <li className="flex gap-4 mb-8">
                 <div className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-full bg-teal-500 flex items-center justify-center shrink-0 shadow-sm">
-                    <CheckCircle2 className="h-5 w-5 text-white" />
+                  <div className="h-9 w-9 rounded-full bg-[#349C93] flex items-center justify-center shrink-0 shadow-sm">
+                    <CheckCircle2 className="h-4.5 w-4.5 text-white" />
                   </div>
-                  <div className="w-0.5 flex-1 bg-gray-200 mt-2" />
+                  <div className="w-px flex-1 bg-gray-200 mt-1.5" />
                 </div>
-                <div className="pt-1.5">
-                  <p className="text-sm font-semibold text-neutral-800">Documents Submitted</p>
-                  <p className="text-[11px] text-neutral-400 mt-1">Oct 24, 2023 at 10:45 AM</p>
+                <div className="pt-1">
+                  <p className="text-[13px] font-semibold text-neutral-800">Documents Submitted</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{submittedAt}</p>
                 </div>
               </li>
 
-              {/* Timeline item 2 — in progress */}
-              <li className="flex gap-5 mb-9">
+              {/* Item 2 — in progress */}
+              <li className="flex gap-4 mb-8">
                 <div className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-                    <ShieldCheck className="h-5 w-5 text-white" />
+                  <div className="h-9 w-9 rounded-full bg-[#1A5888] flex items-center justify-center shrink-0 shadow-sm">
+                    <ShieldCheck className="h-4.5 w-4.5 text-white" />
                   </div>
-                  <div className="w-0.5 flex-1 bg-gray-200 mt-2" />
+                  <div className="w-px flex-1 bg-gray-200 mt-1.5" />
                 </div>
-                <div className="pt-1.5">
-                  <p className="text-sm font-semibold text-blue-600">Compliance Screening</p>
-                  <p className="text-[11px] text-neutral-500 mt-1 mb-3 leading-relaxed">
-                    Currently verifying medical licenses and facility credentials against national
-                    registries.
+                <div className="pt-1">
+                  <p className="text-[13px] font-semibold text-[#1A5888] mb-1">Compliance Screening</p>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed mb-3">
+                    Currently verifying medical licenses and facility credentials against national registries.
                   </p>
-                  <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-[11px] font-medium px-3 py-1.5 rounded-full">
+                  <div className="inline-flex items-center gap-1.5 bg-[#EBF4FF] border border-[#C8DFEF] text-[#1A5888] text-[11px] font-medium px-3 py-1.5 rounded-full">
                     <Clock className="h-3 w-3" />
                     Estimated completion: 2-3 business days
                   </div>
                 </div>
               </li>
 
-              {/* Timeline item 3 — pending */}
-              <li className="flex gap-5">
+              {/* Item 3 — pending */}
+              <li className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                    <div className="h-3 w-3 rounded-full bg-gray-400" />
+                  <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                    <div className="h-2.5 w-2.5 rounded-full bg-gray-400" />
                   </div>
                 </div>
-                <div className="pt-1.5">
-                  <p className="text-sm font-semibold text-neutral-400">Final Approval</p>
-                  <p className="text-[11px] text-neutral-400 mt-1">
+                <div className="pt-1">
+                  <p className="text-[13px] font-semibold text-neutral-400">Final Approval</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
                     Account activation and platform access granted.
                   </p>
                 </div>
@@ -94,64 +110,54 @@ export function VerificationStatusStep() {
           </div>
 
           {/* RIGHT column */}
-          <div className="space-y-6">
+          <div className="space-y-4">
 
             {/* Need Assistance */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-7 hover:border-teal-200/60 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                  <MessageSquare className="h-5 w-5 text-neutral-500" />
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-9 w-9 rounded-xl bg-[#EBF4FF] flex items-center justify-center shrink-0">
+                  <MessageSquare className="h-4 w-4 text-[#1A5888]" />
                 </div>
-                <h3 className="text-sm font-semibold text-neutral-800">Need Assistance?</h3>
+                <h3 className="text-[13px] font-semibold text-neutral-800">Need Assistance?</h3>
               </div>
-              <p className="text-[11px] text-neutral-500 mb-5 leading-relaxed">
-                Our verification specialists are available to answer any questions about your
-                application.
+              <p className="text-[11px] text-neutral-500 mb-4 leading-relaxed">
+                Our verification specialists are available to answer any questions about your application.
               </p>
-              <div className="space-y-2.5">
-                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#F0F7FF] text-sm font-semibold text-teal-700 border border-teal-100 hover:bg-teal-50 hover:border-teal-300 hover:shadow-sm active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400/40">
-                  <MessageSquare className="h-4 w-4" />
+              <div className="space-y-2">
+                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#EBF4FF] border border-[#C8DFEF] text-[12px] font-semibold text-[#1A5888] hover:bg-[#DAE8F3] transition-colors duration-150">
+                  <MessageSquare className="h-3.5 w-3.5" />
                   Live Chat Support
                 </button>
-                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gray-50 text-sm font-semibold text-neutral-700 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300/50">
-                  <Mail className="h-4 w-4" />
+                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-[12px] font-semibold text-neutral-700 hover:bg-gray-100 transition-colors duration-150">
+                  <Mail className="h-3.5 w-3.5" />
                   Email Support
                 </button>
               </div>
             </div>
 
             {/* Application Summary */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-7 hover:border-teal-200/60 hover:shadow-md transition-all duration-200">
-              <h3 className="text-sm font-semibold text-neutral-800 mb-5">Application Summary</h3>
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-[13px] font-semibold text-neutral-800 mb-4">Application Summary</h3>
 
-              <div className="space-y-4 text-[11px]">
+              <div className="space-y-4">
                 <div>
-                  <p className="font-semibold uppercase tracking-wider text-neutral-400 mb-1">
-                    Facility
-                  </p>
-                  <div className="flex items-center gap-1.5 text-neutral-800 font-semibold">
-                    <Building2 className="h-3.5 w-3.5 text-neutral-400" />
-                    St. Jude Medical Center
-                  </div>
-                  <p className="text-neutral-400 mt-0.5 pl-5">Lagos, Nigeria</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 mb-1">Facility</p>
+                  <p className="text-[13px] font-semibold text-neutral-800">{facilityName}</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{facilityCity}, Nigeria</p>
                 </div>
 
                 <div>
-                  <p className="font-semibold uppercase tracking-wider text-neutral-400 mb-1">
-                    Administrator
-                  </p>
-                  <p className="text-neutral-800 font-semibold">Dr. Adebayo Johnson</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 mb-1">Administrator</p>
+                  <p className="text-[13px] font-semibold text-neutral-800">{adminName}</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{adminContact}</p>
                 </div>
 
                 <div>
-                  <p className="font-semibold uppercase tracking-wider text-neutral-400 mb-1">
-                    Bank Details
-                  </p>
-                  <div className="flex items-center gap-1.5 text-neutral-800 font-semibold">
-                    <Banknote className="h-3.5 w-3.5 text-neutral-400" />
-                    Guaranty Trust Bank
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 mb-1">Phone</p>
+                  <div className="flex items-center gap-1.5 text-neutral-800">
+                    <Phone className="h-3.5 w-3.5 text-neutral-400" />
+                    <span className="text-[13px] font-semibold">{adminPhone}</span>
                   </div>
-                  <p className="text-neutral-400 mt-0.5 pl-5">•••• •••• 4892</p>
                 </div>
               </div>
             </div>
@@ -159,16 +165,16 @@ export function VerificationStatusStep() {
         </div>
 
         {/* ── Actions ── */}
-        <div className="mt-10 flex items-center justify-between">
+        <div className="mt-8 flex items-center justify-between">
           <button
-            onClick={() => navigate("/hospital/onboarding/financial-setup")}
-            className="px-7 py-3 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-sm font-semibold transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-400/50"
+            onClick={() => navigate("/hospital/onboarding/location")}
+            className="px-6 py-2.5 rounded-lg bg-[#EF4444] hover:bg-[#DC2626] text-white text-[13px] font-semibold transition-colors duration-150"
           >
             Back
           </button>
           <button
             onClick={() => navigate("/hospital/dashboard")}
-            className="flex items-center gap-2.5 px-8 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-blue-600 text-white text-sm font-semibold shadow hover:opacity-90 hover:shadow-lg active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+            className="flex items-center gap-2 px-7 py-2.5 rounded-lg bg-[#0F766E] hover:bg-[#0D9488] text-white text-[13px] font-semibold transition-colors duration-150 shadow-sm"
           >
             <LayoutDashboard className="h-4 w-4" />
             Go to Dashboard

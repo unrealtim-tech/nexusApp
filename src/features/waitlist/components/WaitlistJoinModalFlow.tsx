@@ -24,27 +24,27 @@ const roleCards: Array<{
   ctaLabel: string;
   icon: typeof Building2;
 }> = [
-  {
-    role: "hospital",
-    title: "Hospitals",
-    description:
-      "Join as a facility admin to secure verified clinicians and streamline staffing coverage.",
-    image: "/waitlist/hospitals.jpg",
-    badge: "Institutional Excellence",
-    ctaLabel: "Join as Hospital",
-    icon: Building2,
-  },
-  {
-    role: "health-worker",
-    title: "For Health Workers",
-    description:
-      "Join as a clinician to discover high-priority shifts and get AI-assisted documentation tools.",
-    image: "/waitlist/health-workers.jpg",
-    badge: "Clinician Empowerment",
-    ctaLabel: "Join as Health Worker",
-    icon: Stethoscope,
-  },
-];
+    {
+      role: "hospital",
+      title: "Hospitals",
+      description:
+        "Join as a facility admin to secure verified clinicians and streamline staffing coverage.",
+      image: "/waitlist/hospitals.jpg",
+      badge: "Institutional Excellence",
+      ctaLabel: "Join as Hospital",
+      icon: Building2,
+    },
+    {
+      role: "health-worker",
+      title: "For Health Workers",
+      description:
+        "Join as a clinician to discover high-priority shifts and get AI-assisted documentation tools.",
+      image: "/waitlist/health-workers.jpg",
+      badge: "Clinician Empowerment",
+      ctaLabel: "Join as Health Worker",
+      icon: Stethoscope,
+    },
+  ];
 
 type SubmitState = "idle" | "loading";
 

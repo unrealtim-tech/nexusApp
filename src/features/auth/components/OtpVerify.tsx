@@ -98,27 +98,35 @@ export function OtpVerify() {
       return;
     }
 
+    const email = localStorage.getItem("pendingEmail") ?? "";
+
     setIsLoading(true);
     setError("");
 
     try {
-      // Simulate OTP verification
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://0.0.0.0:8080";
+      const response = await fetch(`${BASE}/api/v1/auth/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: codeToVerify, email }),
+      });
 
-      // For demo, accept any 6-digit code
-      if (codeToVerify.length === 6) {
-        // Store verification success
-        localStorage.setItem("emailVerified", "true");
-        localStorage.removeItem("pendingEmail");
+      let body: { message?: string; token?: string; [k: string]: unknown } = {};
+      try { body = await response.json(); } catch { /* non-JSON body */ }
 
-        // Navigate to verification success page
-        navigate("/auth/verification-success");
-      } else {
-        setError("Invalid verification code. Please try again.");
+      if (!response.ok) {
+        setError(body.message ?? "Invalid verification code. Please try again.");
+        return;
       }
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      setError("Verification failed. Please try again.");
+
+      // Persist any auth token the API returns
+      if (body.token) localStorage.setItem("authToken", body.token as string);
+      localStorage.setItem("emailVerified", "true");
+      localStorage.removeItem("pendingEmail");
+
+      navigate("/auth/verification-success");
+    } catch {
+      setError("Network error — please check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -127,15 +135,30 @@ export function OtpVerify() {
   const handleResendOtp = async () => {
     if (!canResend) return;
 
+    const email = localStorage.getItem("pendingEmail") ?? "";
+
     setCanResend(false);
     setResendTimer(60);
     setError("");
 
     try {
-      // Simulate resend
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://0.0.0.0:8080";
+      const response = await fetch(`${BASE}/api/v1/auth/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-      // Restart timer
+      let body: { message?: string } = {};
+      try { body = await response.json(); } catch { /* non-JSON body */ }
+
+      if (!response.ok) {
+        setError(body.message ?? "Failed to resend OTP. Please try again.");
+        setCanResend(true);
+        return;
+      }
+
+      // Restart countdown timer
       const timer = setInterval(() => {
         setResendTimer((prev) => {
           if (prev <= 1) {
@@ -146,8 +169,8 @@ export function OtpVerify() {
           return prev - 1;
         });
       }, 1000);
-    } catch (error) {
-      console.error("Resend error:", error);
+    } catch {
+      setError("Network error — please check your connection and try again.");
       setCanResend(true);
     }
   };

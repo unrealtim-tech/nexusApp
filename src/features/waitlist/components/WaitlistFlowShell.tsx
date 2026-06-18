@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { Button } from "@/shared/components/ui/Button";
@@ -11,6 +11,7 @@ import { WaitlistJoinModalFlow } from "./WaitlistJoinModalFlow";
 
 export function WaitlistFlowShell() {
   const { openJoinModal } = useWaitlistFlow();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white text-onboarding-textPrimary">
@@ -35,13 +36,24 @@ export function WaitlistFlowShell() {
             ))}
           </nav>
 
-          <Button
-            type="button"
-            onClick={openJoinModal}
-            className="rounded-xl bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue px-5 text-sm font-semibold text-white shadow-soft"
-          >
-            Join Waitlist
-          </Button>
+          <div className="flex flex-row gap-4">
+            <Button
+              type="button"
+              onClick={openJoinModal}
+              className="rounded-xl bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue px-5 text-sm font-semibold text-white shadow-soft"
+            >
+              Join Waitlist
+            </Button>
+
+
+            <Button
+              type="button"
+              onClick={() => navigate('/auth/login')}
+              className="rounded-xl px-5 text-sm font-semibold text-onboarding-textPrimary bg-white hover:bg-white/80 border border-onboarding-textPrimary/50"
+            >
+              Login
+            </Button>
+          </div>
         </div>
       </header>
 

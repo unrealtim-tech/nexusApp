@@ -26,7 +26,7 @@ export function EmailLogin() {
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       setError('Email address is required');
       return;
@@ -41,17 +41,26 @@ export function EmailLogin() {
     setError('');
 
     try {
-      // Simulate OTP sending with realistic delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Store email for OTP verification
+      const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://0.0.0.0:8080';
+      const response = await fetch(`${BASE}/api/v1/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      let body: { message?: string } = {};
+      try { body = await response.json(); } catch { /* non-JSON body */ }
+
+      if (!response.ok) {
+        setError(body.message ?? `Failed to send OTP (${response.status}). Please try again.`);
+        return;
+      }
+
+      // Persist email so the verify-otp screen can read it
       localStorage.setItem('pendingEmail', email);
-      
-      // Navigate to OTP verification
       navigate('/auth/verify-otp');
-    } catch (error) {
-      console.error('OTP send error:', error);
-      setError('Failed to send OTP. Please try again.');
+    } catch {
+      setError('Network error — please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +68,11 @@ export function EmailLogin() {
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
-    
+
     // Real-time email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setIsValidEmail(emailRegex.test(value));
-    
+
     if (error) {
       setError('');
     }
@@ -79,9 +88,8 @@ export function EmailLogin() {
     <div className="min-h-screen bg-gradient-to-br from-[#F3FAFF] via-[#F8FBFF] to-[#EDF7FF] flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Main Login Card with enhanced shadows and animations */}
-        <Card className={`bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-2xl shadow-blue-500/10 rounded-3xl overflow-hidden min-h-[90vh] sm:min-h-[80vh] flex flex-col transition-all duration-700 ease-out ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
+        <Card className={`bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-2xl shadow-blue-500/10 rounded-3xl overflow-hidden min-h-[90vh] sm:min-h-[80vh] flex flex-col transition-all duration-700 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+          }`}>
           {/* Header with Logo */}
           <div className="bg-white/80 backdrop-blur-sm px-6 py-4 border-b border-gray-100/50 flex-shrink-0">
             <div className="flex items-center justify-between">
@@ -103,9 +111,8 @@ export function EmailLogin() {
 
           <CardContent className="px-6 py-8 flex-1 flex flex-col justify-center">
             {/* Welcome Section with staggered animation */}
-            <div className={`text-center mb-12 transition-all duration-700 delay-200 ease-out ${
-              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-            }`}>
+            <div className={`text-center mb-12 transition-all duration-700 delay-200 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`}>
               <h1 className="text-4xl sm:text-3xl font-bold bg-gradient-to-r from-onboarding-textPrimary to-gray-700 bg-clip-text text-transparent mb-4">
                 Start your professional journey.
               </h1>
@@ -114,30 +121,26 @@ export function EmailLogin() {
               </p>
             </div>
 
-            <form onSubmit={handleSendOTP} className={`space-y-8 transition-all duration-700 delay-400 ease-out ${
-              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-            }`}>
+            <form onSubmit={handleSendOTP} className={`space-y-8 transition-all duration-700 delay-400 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`}>
               {/* Enhanced Email Input Section */}
               <div className="space-y-4">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-neutral-500 transition-colors duration-200">
                   Work Email
                 </label>
-                
+
                 {/* Email Input Container with enhanced styling */}
-                <div className={`relative flex items-center gap-3 rounded-xl px-4 py-4 transition-all duration-300 ease-out ${
-                  email ? 'bg-onboarding-inputBackground shadow-inner' : 'bg-onboarding-inputBackground'
-                } ${
-                  error ? 'ring-2 ring-red-200 bg-red-50/50' : 
-                  isValidEmail && email ? 'ring-2 ring-green-200 bg-green-50/50' : 
-                  'focus-within:ring-2 focus-within:ring-blue-200 focus-within:bg-blue-50/30'
-                }`}>
+                <div className={`relative flex items-center gap-3 rounded-xl px-4 py-4 transition-all duration-300 ease-out ${email ? 'bg-onboarding-inputBackground shadow-inner' : 'bg-onboarding-inputBackground'
+                  } ${error ? 'ring-2 ring-red-200 bg-red-50/50' :
+                    isValidEmail && email ? 'ring-2 ring-green-200 bg-green-50/50' :
+                      'focus-within:ring-2 focus-within:ring-blue-200 focus-within:bg-blue-50/30'
+                  }`}>
                   {/* Email Icon with animation */}
-                  <Mail className={`h-5 w-5 flex-shrink-0 transition-all duration-300 ${
-                    error ? 'text-red-500' : 
-                    isValidEmail && email ? 'text-green-500' : 
-                    'text-secondary-600'
-                  }`} />
-                  
+                  <Mail className={`h-5 w-5 flex-shrink-0 transition-all duration-300 ${error ? 'text-red-500' :
+                      isValidEmail && email ? 'text-green-500' :
+                        'text-secondary-600'
+                    }`} />
+
                   {/* Email Input */}
                   <input
                     type="email"
@@ -175,11 +178,10 @@ export function EmailLogin() {
               <Button
                 type="submit"
                 disabled={isLoading || !email.trim() || !isValidEmail}
-                className={`w-full rounded-xl py-5 text-base font-semibold uppercase tracking-widest text-white transition-all duration-300 ease-out transform ${
-                  isLoading || !email.trim() || !isValidEmail
+                className={`w-full rounded-xl py-5 text-base font-semibold uppercase tracking-widest text-white transition-all duration-300 ease-out transform ${isLoading || !email.trim() || !isValidEmail
                     ? 'bg-gray-300 cursor-not-allowed scale-100'
                     : 'bg-gradient-to-r from-onboarding-primaryGreen to-onboarding-primaryBlue shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]'
-                }`}
+                  }`}
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
@@ -204,9 +206,8 @@ export function EmailLogin() {
             </form>
 
             {/* Create Account + Support Links */}
-            <div className={`mt-10 text-center space-y-4 transition-all duration-700 delay-600 ease-out ${
-              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-            }`}>
+            <div className={`mt-10 text-center space-y-4 transition-all duration-700 delay-600 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`}>
               {/* Create an account CTA */}
               <div className="flex items-center justify-center gap-2">
                 <span className="text-sm text-onboarding-textSecondary">Don't have an account?</span>
@@ -219,19 +220,11 @@ export function EmailLogin() {
                   Create an account →
                 </button>
               </div>
-
-              <p className="text-sm text-onboarding-textSecondary">
-                Need help accessing your account?{' '}
-                <button className="text-secondary-600 hover:text-secondary-700 font-medium transition-colors duration-200 hover:underline">
-                  Support
-                </button>
-              </p>
             </div>
 
             {/* Enhanced Footer Text */}
-            <div className={`mt-8 pt-6 border-t border-gray-100/50 flex-shrink-0 transition-all duration-700 delay-700 ease-out ${
-              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-            }`}>
+            <div className={`mt-8 pt-6 border-t border-gray-100/50 flex-shrink-0 transition-all duration-700 delay-700 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`}>
               <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium text-center">
                 Trusted by Healthcare Professionals Across Nigeria
               </p>
