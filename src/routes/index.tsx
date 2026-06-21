@@ -11,7 +11,10 @@ import { medicalStaffPageRoutes } from "./roles/medical-staff.routes";
 import { patientPageRoutes } from "./roles/patient.routes";
 import { authRoutes } from "./auth.routes";
 import { adminRoutes } from "./admin.routes";
-import { ProtectedRoute } from "@/features/auth/components";
+import {
+  ProtectedRoute,
+  PublicOnlyAuthRoute,
+} from "@/features/auth/components";
 import {
   HospitalDetailsStep,
   LocationGeofencingStep,
@@ -26,7 +29,7 @@ function buildRoleTree(
   standaloneRoutes: RouteObject[] = [],
 ): RouteObject[] {
   const requiredRole =
-    profile === "medical-staff" ? "medical-staff" : "hospital-admin";
+    profile === "medical-staff" ? "medical-staff" : "hospital_admin";
 
   // Onboarding routes are public — no auth check required
   const onboardingRoutes = buildOnboardingRoutes(profile).map((route) => ({
@@ -59,18 +62,61 @@ function buildRoleTree(
 const hospitalOnboardingRoutes: RouteObject[] = [
   {
     // Layout route: provides OnboardingProvider to all child steps
-    element: <OnboardingProvider><Outlet /></OnboardingProvider>,
+    element: (
+      <PublicOnlyAuthRoute>
+        <OnboardingProvider>
+          <Outlet />
+        </OnboardingProvider>
+      </PublicOnlyAuthRoute>
+    ),
     children: [
-      { path: "/hospital/onboarding/registration",        element: <HospitalDetailsStep /> },
-      { path: "/hospital/onboarding/location",            element: <LocationGeofencingStep /> },
-      { path: "/hospital/onboarding/verification-status", element: <VerificationStatusStep /> },
+      {
+        path: "/hospital/onboarding/registration",
+        element: <HospitalDetailsStep />,
+      },
+      {
+        path: "/hospital/onboarding/location",
+        element: <LocationGeofencingStep />,
+      },
+      {
+        path: "/hospital/onboarding/verification-status",
+        element: <VerificationStatusStep />,
+      },
     ],
   },
   // Redirect old slugs → new canonical slugs (outside provider — no form data needed)
-  { path: "/hospital/onboarding/legal-verification",     element: <Navigate to="/hospital/onboarding/location" replace /> },
-  { path: "/hospital/onboarding/onboarding-status",      element: <Navigate to="/hospital/onboarding/verification-status" replace /> },
-  { path: "/hospital/onboarding/accreditation-granted",  element: <Navigate to="/hospital/onboarding/verification-status" replace /> },
-  { path: "/hospital/onboarding",                        element: <Navigate to="/hospital/onboarding/registration" replace /> },
+  {
+    path: "/hospital/onboarding/legal-verification",
+    element: (
+      <PublicOnlyAuthRoute>
+        <Navigate to="/hospital/onboarding/location" replace />
+      </PublicOnlyAuthRoute>
+    ),
+  },
+  {
+    path: "/hospital/onboarding/onboarding-status",
+    element: (
+      <PublicOnlyAuthRoute>
+        <Navigate to="/hospital/onboarding/verification-status" replace />
+      </PublicOnlyAuthRoute>
+    ),
+  },
+  {
+    path: "/hospital/onboarding/accreditation-granted",
+    element: (
+      <PublicOnlyAuthRoute>
+        <Navigate to="/hospital/onboarding/verification-status" replace />
+      </PublicOnlyAuthRoute>
+    ),
+  },
+  {
+    path: "/hospital/onboarding",
+    element: (
+      <PublicOnlyAuthRoute>
+        <Navigate to="/hospital/onboarding/registration" replace />
+      </PublicOnlyAuthRoute>
+    ),
+  },
 ];
 
 export const appRoutes: RouteObject[] = [

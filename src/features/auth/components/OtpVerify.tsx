@@ -5,6 +5,8 @@ import { Button } from "@/shared/components/ui/Button";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
 import { ArrowLeft } from "lucide-react";
 
+import { useAuthStore } from "@/features/auth/store/authStore";
+
 export function OtpVerify() {
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -105,26 +107,124 @@ export function OtpVerify() {
 
     try {
       const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://0.0.0.0:8080";
-      const response = await fetch(`${BASE}/api/v1/auth/otp/verify`, {
+
+      // Decide which OTP verify endpoint to call based on the current auth flow.
+      // - Health-worker registration uses clinicians OTP.
+      // - Otherwise, default to normal auth OTP.
+      const flowForOtpVerify = useAuthStore.getState().activeAuthFlow;
+      const otpVerifyMode =
+        flowForOtpVerify?.role === "health-worker" &&
+        flowForOtpVerify?.action === "register"
+          ? "clinicians"
+          : "normal";
+
+      const otpVerifyUrl =
+        otpVerifyMode === "clinicians"
+          ? `${BASE}/api/v1/clinicians/otp/verify`
+          : `${BASE}/api/v1/auth/otp/verify`;
+
+      const response = await fetch(otpVerifyUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: codeToVerify, email }),
       });
 
-      let body: { message?: string; token?: string; [k: string]: unknown } = {};
-      try { body = await response.json(); } catch { /* non-JSON body */ }
+      let body: {
+        message?: string;
+        access_token?: string;
+        refresh_token?: string;
+        user?: any;
+        token?: string;
+        clinician_id?: string;
+        [k: string]: unknown;
+      } = {};
+      try {
+        body = await response.json();
+      } catch {
+        /* non-JSON body */
+      }
 
       if (!response.ok) {
-        setError(body.message ?? "Invalid verification code. Please try again.");
+        setError(
+          body.message ?? "Invalid verification code. Please try again.",
+        );
         return;
       }
 
-      // Persist any auth token the API returns
-      if (body.token) localStorage.setItem("authToken", body.token as string);
+      // Save auth session (access/refresh tokens + user)
+      // API returns: access_token, refresh_token, user
+      if (body.access_token && body.refresh_token && body.user) {
+        useAuthStore.getState().setAuthSession({
+          accessToken: body.access_token,
+          refreshToken: body.refresh_token,
+          user: body.user,
+        });
+      } else if (body.token) {
+        // Backward compatibility with older token field
+        localStorage.setItem("authToken", body.token as string);
+      }
+
+      if (body?.access_token) {
+        useAuthStore.getState().setAuthSession({
+          accessToken: body.access_token,
+          refreshToken: "",
+          user: { id: body?.clinician_id || "" },
+        });
+      }
+
       localStorage.setItem("emailVerified", "true");
       localStorage.removeItem("pendingEmail");
 
-      navigate("/auth/verification-success");
+      const userRole =
+        body.user?.role ?? useAuthStore.getState().user?.role ?? null;
+
+      if (!flowForOtpVerify) {
+        navigate("/auth/verification-success");
+        return;
+      }
+
+      const { role, action } = flowForOtpVerify;
+
+      const clearFlow = () => {
+        useAuthStore.getState().clearActiveAuthFlow();
+      };
+
+      // Hospital routes
+      if (role === "hospital") {
+        if (action === "login") {
+          clearFlow();
+          navigate("/hospital/dashboard");
+          return;
+        }
+
+        // hospital/register => after verify, complete hospital onboarding first.
+        // Hospital onboarding step will route into shared OTP login when done.
+        clearFlow();
+        navigate("/hospital/onboarding/registration");
+        return;
+      }
+
+      // Health-worker routes
+      if (role === "health-worker") {
+        if (action === "login") {
+          clearFlow();
+          navigate("/medical-staff/dashboard");
+          return;
+        }
+
+        // health-worker/register => proceed to health-worker onboarding
+        clearFlow();
+        navigate("/auth/onboarding/professional-profile");
+        return;
+      }
+
+      // Fallback
+      clearFlow();
+      navigate(
+        userRole === "hospital_admin"
+          ? "/hospital/dashboard"
+          : "/medical-staff/dashboard",
+      );
     } catch {
       setError("Network error — please check your connection and try again.");
     } finally {
@@ -150,7 +250,11 @@ export function OtpVerify() {
       });
 
       let body: { message?: string } = {};
-      try { body = await response.json(); } catch { /* non-JSON body */ }
+      try {
+        body = await response.json();
+      } catch {
+        /* non-JSON body */
+      }
 
       if (!response.ok) {
         setError(body.message ?? "Failed to resend OTP. Please try again.");
