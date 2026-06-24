@@ -5,7 +5,6 @@ import type {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
-const LICENSE_REGEX = /^[a-z0-9-]{4,}$/i;
 
 export type HospitalFormErrors = Partial<
   Record<keyof HospitalFormDraft, string>
@@ -82,8 +81,6 @@ export function validateHealthWorkerForm(
   const licenseNumber = form.licenseNumber.trim();
   if (!licenseNumber) {
     errors.licenseNumber = "License number is required.";
-  } else if (!LICENSE_REGEX.test(licenseNumber)) {
-    errors.licenseNumber = "Enter a valid license number.";
   }
 
   return errors;
