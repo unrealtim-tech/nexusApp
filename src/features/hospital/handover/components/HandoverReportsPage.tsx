@@ -174,9 +174,9 @@ export function HandoverReportsPage() {
                   </Badge>
                   <ChevronRight className="mt-0.5 h-5 w-5 flex-shrink-0 text-neutral-300 dark:text-neutral-600" />
                 </div>
-                {report.executiveSummary && (
-                  <p className="mt-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    {report.executiveSummary}
+                {report.handover?.instructions && (
+                  <p className="mt-4 line-clamp-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                    {report.handover.instructions}
                   </p>
                 )}
               </Link>
