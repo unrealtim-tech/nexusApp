@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Plus, Printer, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  ClipboardList,
+  FileText,
+  Plus,
+  Printer,
+  Wrench,
+} from "lucide-react";
 import { Badge, type BadgeVariant } from "@/shared/components/ui/Badge";
 import { Button } from "@/shared/components/ui/Button";
 import { EmptyState, EmptyStateIcon } from "@/shared/components/ui/EmptyState";
@@ -25,10 +34,54 @@ const statusDisplay: Record<
   revision_requested: { label: "Revision Requested", variant: "error" },
 };
 
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} · ${d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
+/** Best-effort human line for a free-form critical-patient / pending-task object. */
+function describeEntry(entry: Record<string, unknown>): string {
+  const preferred = [
+    "description",
+    "summary",
+    "task",
+    "note",
+    "notes",
+    "detail",
+    "details",
+    "text",
+    "title",
+    "name",
+    "label",
+  ];
+  for (const key of preferred) {
+    const v = entry[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  const firstString = Object.values(entry).find(
+    (v) => typeof v === "string" && v.trim(),
+  );
+  if (typeof firstString === "string") return firstString.trim();
+  try {
+    return JSON.stringify(entry);
+  } catch {
+    return "—";
+  }
+}
+
 /**
  * Full-screen handover report review (Figma "Handover" detail frames):
- * printable report card with Approve & Release Payment / Request Revision
- * wired to the real handover endpoints.
+ * printable report card rendering the worker's submitted F1-H01..H05 handover
+ * (fetched from `GET /api/v1/shifts/{id}/handover`), with Approve & Release
+ * Payment / Request Revision wired to the real handover endpoints.
  */
 export function HandoverReportDetailPage() {
   const { shiftId } = useParams<{ shiftId: string }>();
@@ -56,11 +109,20 @@ export function HandoverReportDetailPage() {
   }, [shiftId]);
 
   const handleApprove = async () => {
-    if (!report) return;
+    if (!report?.handover) return;
     setIsApproving(true);
     try {
       await HandoverService.approve(report);
-      setReport({ ...report, status: "approved" });
+      const approvedAt = new Date().toISOString();
+      setReport({
+        ...report,
+        status: "approved",
+        handover: { ...report.handover, hospitalApprovedAt: approvedAt },
+      });
+      appToast.success(
+        "Handover approved",
+        "Payment will be released to the worker on the next payout run.",
+      );
     } catch (err) {
       appToast.fromError(err, "Unable to approve this report");
     } finally {
@@ -69,12 +131,22 @@ export function HandoverReportDetailPage() {
   };
 
   const handleRequestRevision = async () => {
-    if (!report || !revisionNotes.trim()) return;
+    if (!report?.handover || !revisionNotes.trim()) return;
     setIsSendingRevision(true);
     try {
       await HandoverService.requestRevision(report, revisionNotes.trim());
-      setReport({ ...report, status: "revision_requested" });
+      const requestedAt = new Date().toISOString();
+      setReport({
+        ...report,
+        status: "revision_requested",
+        handover: {
+          ...report.handover,
+          revisionRequestedAt: requestedAt,
+          revisionNotes: revisionNotes.trim(),
+        },
+      });
       setRevisionOpen(false);
+      setRevisionNotes("");
       appToast.success("Revision requested", "The worker has been notified.");
     } catch (err) {
       appToast.fromError(err, "Unable to request a revision");
@@ -171,15 +243,20 @@ export function HandoverReportDetailPage() {
                 <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-neutral-100 bg-neutral-100 sm:grid-cols-4 dark:border-neutral-800 dark:bg-neutral-800">
                   {[
                     { label: "Department", value: report.department },
-                    { label: "Submitted", value: report.submittedLabel },
                     {
-                      label: "Patients Seen",
-                      value: report.patientsSeen ?? "—",
+                      label: "Submitted",
+                      value: report.handover
+                        ? formatDateTime(report.handover.submittedAt)
+                        : "Not submitted",
                     },
                     {
-                      label: "Tasks Completed",
-                      value: report.tasksCompleted
-                        ? `${report.tasksCompleted.done} of ${report.tasksCompleted.total}`
+                      label: "Patients Seen",
+                      value: report.handover?.patientsSeen ?? "—",
+                    },
+                    {
+                      label: "Follow-ups",
+                      value: report.handover
+                        ? report.handover.criticalPatients.length
                         : "—",
                     },
                   ].map((stat) => (
@@ -196,57 +273,116 @@ export function HandoverReportDetailPage() {
               </div>
 
               <div className="border-t border-neutral-100 p-6 sm:p-8 dark:border-neutral-800">
-                {report.executiveSummary ? (
+                {report.handover ? (
                   <>
-                    {/* AI note */}
-                    <div className="flex items-start gap-3 rounded-xl bg-primary-50 px-4 py-3.5 dark:bg-primary-950">
-                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-white">
-                        <Sparkles className="h-3.5 w-3.5" />
-                      </span>
-                      <p className="text-sm text-primary-800 dark:text-primary-300">
-                        This report was generated by NexusCare AI from the
-                        worker's submitted clinical notes and shift activity
-                        log.
-                      </p>
-                    </div>
-
-                    {[
-                      {
-                        title: "1. Executive Summary",
-                        body: report.executiveSummary,
-                      },
-                      {
-                        title: "2. Diagnosis & Clinical Findings",
-                        body: report.clinicalFindings,
-                      },
-                      {
-                        title: "3. Full Narrative Report",
-                        body: report.narrative,
-                      },
-                    ]
-                      .filter((section) => section.body)
-                      .map((section) => (
-                        <section key={section.title} className="mt-7">
-                          <h2 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                            {section.title}
-                          </h2>
-                          <p className="mt-2.5 text-sm leading-relaxed text-neutral-700 dark:text-neutral-400">
-                            {section.body}
+                    {report.handover.revisionRequestedAt && (
+                      <div className="flex items-start gap-3 rounded-xl bg-warning-50 px-4 py-3.5 dark:bg-warning-950">
+                        <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-warning-600 text-white">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-warning-800 dark:text-warning-300">
+                            Revision requested{" "}
+                            {formatDateTime(report.handover.revisionRequestedAt)}
                           </p>
-                        </section>
-                      ))}
+                          {report.handover.revisionNotes && (
+                            <p className="mt-1 text-sm text-warning-700 dark:text-warning-400">
+                              {report.handover.revisionNotes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <section className="mt-7">
+                      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        <FileText className="h-4 w-4" />
+                        1. Instructions for Incoming Staff
+                      </h2>
+                      <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-400">
+                        {report.handover.instructions}
+                      </p>
+                    </section>
+
+                    <section className="mt-7">
+                      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        <AlertTriangle className="h-4 w-4" />
+                        2. Patients Requiring Follow-up
+                      </h2>
+                      {report.handover.criticalPatients.length === 0 ? (
+                        <p className="mt-2.5 text-sm text-neutral-500 dark:text-neutral-500">
+                          None flagged.
+                        </p>
+                      ) : (
+                        <ul className="mt-2.5 space-y-2">
+                          {report.handover.criticalPatients.map((entry, i) => (
+                            <li
+                              key={i}
+                              className="rounded-xl bg-neutral-50 px-4 py-3 text-sm leading-relaxed text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                            >
+                              {describeEntry(entry)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <section className="mt-7">
+                      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        <ClipboardList className="h-4 w-4" />
+                        3. Pending Tasks
+                      </h2>
+                      {report.handover.pendingTasks.length === 0 ? (
+                        <p className="mt-2.5 text-sm text-neutral-500 dark:text-neutral-500">
+                          No outstanding tasks.
+                        </p>
+                      ) : (
+                        <ul className="mt-2.5 space-y-2">
+                          {report.handover.pendingTasks.map((entry, i) => (
+                            <li
+                              key={i}
+                              className="rounded-xl bg-neutral-50 px-4 py-3 text-sm leading-relaxed text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                            >
+                              {describeEntry(entry)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <section className="mt-7">
+                      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        <Wrench className="h-4 w-4" />
+                        4. Equipment Status
+                      </h2>
+                      <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-400">
+                        {report.handover.equipmentStatus?.trim() ||
+                          "No equipment issues reported."}
+                      </p>
+                    </section>
+
+                    <p className="mt-7 text-xs text-neutral-400 dark:text-neutral-500">
+                      Submitted {formatDateTime(report.handover.submittedAt)}.
+                      {report.handover.hospitalApprovedAt
+                        ? ` Approved ${formatDateTime(
+                            report.handover.hospitalApprovedAt,
+                          )}.`
+                        : ` Auto-approves ${formatDateTime(
+                            report.handover.autoApproveAfter,
+                          )} without hospital action.`}
+                    </p>
                   </>
                 ) : (
                   <EmptyState
-                    icon={<EmptyStateIcon icon={Sparkles} tone="primary" />}
-                    title="Report content not available yet"
-                    description="The worker's submitted handover notes will appear here once the platform exposes submitted reports to hospitals."
+                    icon={<EmptyStateIcon icon={FileText} tone="primary" />}
+                    title="No handover submitted yet"
+                    description="The worker's F1-H01..H05 handover will appear here once they submit it at clock-out."
                   />
                 )}
 
                 <section className="mt-7">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                    4. Compensation
+                    5. Compensation
                   </h2>
                   <div className="mt-2.5 flex items-center justify-between rounded-xl bg-neutral-50 px-5 py-4 dark:bg-neutral-800">
                     <div>
@@ -274,27 +410,37 @@ export function HandoverReportDetailPage() {
                 released to {report.workerName}
                 {report.credential ? `, ${report.credential}` : ""}.
               </div>
-            ) : report.status === "revision_requested" ? (
-              <div className="mt-6 rounded-xl bg-warning-50 px-6 py-4 text-center text-sm font-semibold text-warning-700 print:hidden dark:bg-warning-950 dark:text-warning-300">
-                Revision requested — the worker has been asked to update this
-                report.
+            ) : report.status === "in_progress" || !report.handover ? (
+              <div className="mt-6 rounded-xl bg-neutral-100 px-6 py-4 text-center text-sm font-medium text-neutral-500 print:hidden dark:bg-neutral-800 dark:text-neutral-400">
+                The worker hasn't submitted a handover for this shift yet — no
+                actions are available.
               </div>
             ) : (
-              <div className="mt-6 grid gap-3 print:hidden sm:grid-cols-[1fr_2fr]">
-                <button
-                  onClick={() => setRevisionOpen(true)}
-                  className="h-12 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:bg-neutral-800"
-                >
-                  Request Revision
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={isApproving}
-                  className="h-12 rounded-xl bg-success-500 text-sm font-bold text-white transition-colors hover:bg-success-600 disabled:opacity-60"
-                >
-                  {isApproving ? "Approving..." : "Approve & Release Payment"}
-                </button>
-              </div>
+              <>
+                {report.status === "revision_requested" && (
+                  <div className="mt-6 rounded-xl bg-warning-50 px-6 py-4 text-center text-sm font-semibold text-warning-700 print:hidden dark:bg-warning-950 dark:text-warning-300">
+                    A revision has been requested — the worker may resubmit. You
+                    can still approve the current version or request another
+                    revision.
+                  </div>
+                )}
+                <div className="mt-4 grid gap-3 print:hidden sm:grid-cols-[1fr_2fr]">
+                  <button
+                    onClick={() => setRevisionOpen(true)}
+                    disabled={isApproving || isSendingRevision}
+                    className="h-12 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:bg-neutral-800"
+                  >
+                    Request Revision
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isApproving || isSendingRevision}
+                    className="h-12 rounded-xl bg-success-500 text-sm font-bold text-white transition-colors hover:bg-success-600 disabled:opacity-60"
+                  >
+                    {isApproving ? "Approving..." : "Approve & Release Payment"}
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}

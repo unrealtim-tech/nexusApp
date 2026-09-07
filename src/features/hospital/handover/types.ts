@@ -4,6 +4,34 @@ export type HandoverStatus =
   | "approved"
   | "revision_requested";
 
+/**
+ * Submitted handover content, mapped from
+ * `GET /api/v1/shifts/{shift_id}/handover` (nexus-backend `HandoverResponse`,
+ * F1-H01..H05). `null` on a report row until the worker submits.
+ */
+export interface HandoverContent {
+  /** Handover row id. */
+  id: string;
+  /** F1-H01 — total patients seen during the shift. */
+  patientsSeen: number;
+  /** F1-H04 — instructions for the incoming staff (required, non-empty). */
+  instructions: string;
+  /** F1-H05 — equipment issues (optional). */
+  equipmentStatus: string | null;
+  /** F1-H02 — patients needing immediate follow-up (free-form objects). */
+  criticalPatients: Array<Record<string, unknown>>;
+  /** F1-H03 — lab results, referrals, medications still pending. */
+  pendingTasks: Array<Record<string, unknown>>;
+  submittedAt: string;
+  /** Worker can still edit until this instant (1h after clock-out). */
+  editableUntil: string;
+  /** Auto-approves (Tier 3) if the hospital takes no action by this instant. */
+  autoApproveAfter: string;
+  hospitalApprovedAt: string | null;
+  revisionRequestedAt: string | null;
+  revisionNotes: string | null;
+}
+
 export interface HandoverReport {
   /** Shift this report belongs to — used for the approve/revision endpoints. */
   shiftId: string;
@@ -16,16 +44,13 @@ export interface HandoverReport {
   shiftLabel: string;
   department: string;
   submittedLabel: string;
-  /**
-   * Submitted handover content. The backend has no read endpoint for
-   * handover submissions yet, so these stay null and the UI shows an
-   * empty state for the report body.
-   */
-  patientsSeen: number | null;
-  tasksCompleted: { done: number; total: number } | null;
-  executiveSummary: string | null;
-  clinicalFindings: string | null;
-  narrative: string | null;
   amountKobo: number;
   status: HandoverStatus;
+  /**
+   * The worker's submitted handover, from
+   * `GET /api/v1/shifts/{shift_id}/handover`. `null` while the shift is still
+   * in progress (or the worker hasn't submitted yet) — the UI renders an empty
+   * state for the report body in that case.
+   */
+  handover: HandoverContent | null;
 }
