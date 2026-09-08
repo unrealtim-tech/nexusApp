@@ -56,6 +56,37 @@ export interface ApiShift {
   updated_at: string;
 }
 
+/** Per-requirement match against the requesting clinician's qualifications. */
+export interface ApiQualificationMatch {
+  requirement: string;
+  met: boolean;
+}
+
+/**
+ * `GET /api/v1/shifts/{id}` — enriched `ShiftDetailResponse` (base shift plus
+ * the fields below). Mirrors nexus-backend `src/models/shift.rs`.
+ */
+export interface ApiShiftDetail extends ApiShift {
+  /** Clinical tasks for the shift; empty when none defined. */
+  tasks: string[];
+  /** Required qualification tags; empty when none defined. */
+  requirements: string[];
+  /** Per-requirement match vs. the caller's qualifications (clinician callers only). */
+  qualification_match: ApiQualificationMatch[];
+  hospital_rating?: {
+    average: number;
+    count: number;
+  } | null;
+  hospital_location?: {
+    latitude: number | null;
+    longitude: number | null;
+    place_label?: string | null;
+  } | null;
+  /** Not returned by the backend today, but rendered when present. */
+  deliverables?: string[];
+  equipment?: string[];
+}
+
 export interface ApiPaginationMetadata {
   current_page: number;
   page_size: number;

@@ -1,5 +1,6 @@
 import apiClient from "@/lib/apiClient";
 import { ApiError } from "@/lib/apiError";
+import { partitionHandoverEntries } from "@/shared/handover/handoverImages";
 import type {
   ApiShift,
   ApiShiftListResponse,
@@ -45,22 +46,17 @@ interface ApiHandoverResponse {
   revision_notes?: string | null;
 }
 
-function asObjectArray(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (v): v is Record<string, unknown> =>
-      typeof v === "object" && v !== null && !Array.isArray(v),
-  );
-}
-
 function mapHandover(api: ApiHandoverResponse): HandoverContent {
+  const critical = partitionHandoverEntries(api.critical_patients);
+  const pending = partitionHandoverEntries(api.pending_tasks);
   return {
     id: api.id,
     patientsSeen: api.patients_seen,
     instructions: api.instructions,
     equipmentStatus: api.equipment_status ?? null,
-    criticalPatients: asObjectArray(api.critical_patients),
-    pendingTasks: asObjectArray(api.pending_tasks),
+    criticalPatients: critical.entries,
+    pendingTasks: pending.entries,
+    shiftImages: [...pending.images, ...critical.images].map((i) => i.url),
     submittedAt: api.submitted_at,
     editableUntil: api.editable_until,
     autoApproveAfter: api.auto_approve_after,

@@ -36,9 +36,17 @@ interface LiveKitParticipant {
   getTrackPublication: (source: string) => LiveKitPublication | undefined;
 }
 
+interface LiveKitRemoteParticipant {
+  trackPublications: Map<unknown, LiveKitPublication>;
+}
+
 interface LiveKitRoom {
-  remoteParticipants: Map<unknown, unknown>;
+  remoteParticipants: Map<unknown, LiveKitRemoteParticipant>;
   localParticipant: LiveKitParticipant;
+  /** False when the browser is blocking autoplay of remote audio. */
+  canPlaybackAudio: boolean;
+  /** Must be called from a user gesture to resume blocked audio playback. */
+  startAudio: () => Promise<void>;
   connect: (url: string, token: string) => Promise<void>;
   disconnect: () => void;
   switchActiveDevice: (kind: MediaDeviceKind, deviceId: string) => Promise<void>;
@@ -50,6 +58,8 @@ export interface VirtualCallRoom {
   error: string;
   cameraOn: boolean;
   micOn: boolean;
+  /** True when the browser is blocking remote audio; show a tap-to-enable control. */
+  audioBlocked: boolean;
   /** True once a local camera <video> is mounted in the self-view tile. */
   localVideoAttached: boolean;
   /** True once a remote participant has joined the room. */
@@ -68,6 +78,8 @@ export interface VirtualCallRoom {
   join: (opts: JoinOptions) => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleMic: () => Promise<void>;
+  /** Resume remote audio playback after the browser blocked it (call from a click). */
+  resumeAudio: () => Promise<void>;
   switchDevice: (
     kind: "videoinput" | "audioinput",
     deviceId: string,
@@ -85,6 +97,21 @@ function attachRemoteVideo(track: LiveKitTrack, container: HTMLDivElement) {
   el.className = "h-full w-full object-cover";
   container.innerHTML = "";
   container.appendChild(el);
+}
+
+// Remote audio: attach to the hidden host and force playback. `track.attach()`
+// gives an <audio autoplay> element, but if the track is subscribed seconds
+// after the join click (outside the user-gesture window) the browser can
+// silently refuse to start it — so call play() explicitly and let the room's
+// AudioPlaybackStatusChanged handler surface a retry if it's still blocked.
+function attachRemoteAudio(track: LiveKitTrack, host: HTMLDivElement) {
+  const el = track.attach() as HTMLAudioElement;
+  el.autoplay = true;
+  el.setAttribute("playsinline", "");
+  el.dataset.virtualCallAudioEl = "true";
+  host.appendChild(el);
+  const played = el.play?.();
+  if (played && typeof played.catch === "function") played.catch(() => {});
 }
 
 // Mirrored self-view, like looking in a mirror. Clears the container first so
@@ -109,14 +136,31 @@ function attachLocalVideo(track: LiveKitTrack, container: HTMLDivElement) {
  * user navigates). Remote audio attaches to a hidden element on <body> so the
  * caller keeps hearing the other side even when no video tile is on screen.
  */
+/**
+ * Which side of the consult this hook is running for. Drives green-room
+ * presence: each side only counts the *other* party as "present", so the
+ * hospital never sees "the clinician is on the call" just because its own
+ * (or a stale) participant row is in the session.
+ */
+export type VirtualCallViewer = "hospital" | "worker";
+
+/** `video_session_participants.participant_role` for the opposite side. */
+const COUNTERPART_ROLE: Record<VirtualCallViewer, string> = {
+  hospital: "clinician",
+  worker: "hospital_observer",
+};
+
 export function useVirtualCallRoom(
   shiftId: string | undefined,
   deviceLabel: string,
+  viewerRole: VirtualCallViewer = "hospital",
 ): VirtualCallRoom {
   const [state, setState] = useState<VirtualCallState>("idle");
   const [error, setError] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  /** True when the browser is blocking remote audio and needs a tap to resume. */
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [localVideoAttached, setLocalVideoAttached] = useState(false);
   const [remoteJoined, setRemoteJoined] = useState(false);
   const [consultation, setConsultation] = useState<ConsultSession | null>(null);
@@ -144,7 +188,10 @@ export function useVirtualCallRoom(
   // video tiles unmounting during navigation.
   useEffect(() => {
     const host = document.createElement("div");
-    host.style.display = "none";
+    // Visually hidden but still *rendered* — some browsers won't start media
+    // playback for elements inside a `display:none` subtree.
+    host.style.cssText =
+      "position:fixed;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;";
     host.dataset.virtualCallAudio = "true";
     document.body.appendChild(host);
     audioHostRef.current = host;
@@ -204,9 +251,15 @@ export function useVirtualCallRoom(
       VirtualCallService.getSession(shiftId)
         .then((session) => {
           if (cancelled) return;
-          const other = session.participants.find((p) => p.connected);
-          setPresent(Boolean(other));
-          setPresentName(other?.display_name ?? null);
+          // Only the *other* side counts as "present" — never our own row or a
+          // stale participant left over from an earlier connection.
+          const counterpart = session.participants.find(
+            (p) =>
+              p.connected &&
+              p.participant_role === COUNTERPART_ROLE[viewerRole],
+          );
+          setPresent(Boolean(counterpart));
+          setPresentName(counterpart?.display_name ?? null);
         })
         .catch(() => {
           if (cancelled) return;
@@ -219,7 +272,7 @@ export function useVirtualCallRoom(
       cancelled = true;
       clearInterval(interval);
     };
-  }, [state, shiftId]);
+  }, [state, shiftId, viewerRole]);
 
   const setLocalVideoEl = useCallback((el: HTMLDivElement | null) => {
     localElRef.current = el;
@@ -288,9 +341,11 @@ export function useVirtualCallRoom(
               attachRemoteVideo(track, remoteElRef.current);
             }
           } else if (track.kind === Track.Kind.Audio && audioHostRef.current) {
-            const el = track.attach();
-            audioHostRef.current.appendChild(el);
+            attachRemoteAudio(track, audioHostRef.current);
           }
+        });
+        room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+          setAudioBlocked(!room.canPlaybackAudio);
         });
         room.on(RoomEvent.TrackUnsubscribed, (track: LiveKitTrack) => {
           if (track.kind === Track.Kind.Video) {
@@ -335,6 +390,26 @@ export function useVirtualCallRoom(
         await room.connect(url, token);
         setRemoteJoined(room.remoteParticipants.size > 0);
 
+        // Attach audio for anyone who was already publishing before we joined —
+        // `TrackSubscribed` is not guaranteed to re-fire for pre-existing
+        // tracks in every livekit-client version.
+        if (audioHostRef.current) {
+          for (const participant of room.remoteParticipants.values()) {
+            for (const pub of participant.trackPublications.values()) {
+              if (pub.track && pub.track.kind === Track.Kind.Audio) {
+                attachRemoteAudio(pub.track, audioHostRef.current);
+              }
+            }
+          }
+        }
+        // Resume playback while we're still inside the join click's gesture.
+        try {
+          await room.startAudio();
+        } catch {
+          /* startAudio only works from a gesture; retried via resumeAudio() */
+        }
+        setAudioBlocked(!room.canPlaybackAudio);
+
         try {
           await room.localParticipant.setCameraEnabled(opts.camEnabled);
           setCameraOn(opts.camEnabled);
@@ -344,8 +419,16 @@ export function useVirtualCallRoom(
         try {
           await room.localParticipant.setMicrophoneEnabled(opts.micEnabled);
           setMicOn(opts.micEnabled);
-        } catch {
-          setMicOn(false);
+        } catch (micErr) {
+          // A stale remembered audio device id makes the constrained capture
+          // throw — retry once with no device constraint before giving up.
+          console.warn("mic enable failed, retrying without device", micErr);
+          try {
+            await room.localParticipant.setMicrophoneEnabled(true);
+            setMicOn(true);
+          } catch {
+            setMicOn(false);
+          }
         }
 
         VirtualCallService.getSession(shiftId)
@@ -381,6 +464,11 @@ export function useVirtualCallRoom(
   const toggleMic = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return;
+    // This runs from a click — a good moment to also clear any blocked audio.
+    room.startAudio().then(
+      () => setAudioBlocked(!room.canPlaybackAudio),
+      () => {},
+    );
     const next = !micOn;
     try {
       await room.localParticipant.setMicrophoneEnabled(next);
@@ -389,6 +477,18 @@ export function useVirtualCallRoom(
       setMicOn(false);
     }
   }, [micOn]);
+
+  /** Re-trigger blocked remote-audio playback; call from a click. */
+  const resumeAudio = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    try {
+      await room.startAudio();
+      setAudioBlocked(!room.canPlaybackAudio);
+    } catch {
+      /* still blocked — button stays visible */
+    }
+  }, []);
 
   const switchDevice = useCallback(
     async (kind: "videoinput" | "audioinput", deviceId: string) => {
@@ -448,6 +548,7 @@ export function useVirtualCallRoom(
     error,
     cameraOn,
     micOn,
+    audioBlocked,
     localVideoAttached,
     remoteJoined,
     consultation,
@@ -462,6 +563,7 @@ export function useVirtualCallRoom(
     join,
     toggleCamera,
     toggleMic,
+    resumeAudio,
     switchDevice,
     leave,
     end,

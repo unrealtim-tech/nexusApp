@@ -5,6 +5,8 @@ import { cn } from "@/shared/utils/cn";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { ApiError } from "@/lib/apiError";
 import type { ApiShift } from "@/features/hospital/shifts/types";
+import { fetchHospitalLocation } from "@/shared/services/hospitalLocation";
+import { CLOCK_IN_MAX_KM, haversineKm } from "@/shared/utils/geo";
 import { Header } from "../DashboardChrome";
 
 type Stage = "ready" | "locating" | "out-of-range" | "awaiting-approval" | "error";
@@ -35,6 +37,8 @@ export function ShiftEntryScreen({
   const [stage, setStage] = useState<Stage>("ready");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Set when the pre-flight distance check (not the backend) rejects the clock-in. */
+  const [outOfRangeKm, setOutOfRangeKm] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialLat = (shift as any).latitude ?? (shift as any).hospital_latitude ?? 6.5244;
@@ -84,6 +88,24 @@ export function ShiftEntryScreen({
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
+            // Pre-flight: reject a clock-in from more than 10 km away without
+            // troubling the backend, so the worker gets an exact distance.
+            const loc = await fetchHospitalLocation(shift.hospital_id);
+            if (loc && loc.latitude != null && loc.longitude != null) {
+              const km = haversineKm(
+                position.coords.latitude,
+                position.coords.longitude,
+                loc.latitude,
+                loc.longitude,
+              );
+              if (km > CLOCK_IN_MAX_KM) {
+                setOutOfRangeKm(km);
+                setStage("out-of-range");
+                setIsSubmitting(false);
+                return;
+              }
+            }
+            setOutOfRangeKm(null);
             await onClockIn({
               method: "gps",
               latitude: position.coords.latitude,
@@ -181,10 +203,12 @@ export function ShiftEntryScreen({
           <Card>
             <CardContent className="space-y-3 p-5 text-center">
               <MapPin className="mx-auto h-8 w-8 text-error-600 dark:text-error-400" />
-              <h3 className="font-bold">Outside geofence range</h3>
+              <h3 className="font-bold">Outside clock-in range</h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-500">
-                We couldn't confirm you're on-site. Submit a photo of the entrance for hospital
-                review instead.
+                {outOfRangeKm != null
+                  ? `You're about ${outOfRangeKm.toFixed(1)} km from the hospital — clock-in requires you to be within ${CLOCK_IN_MAX_KM} km. `
+                  : "We couldn't confirm you're on-site. "}
+                Submit a photo of the entrance for hospital review instead.
               </p>
               <input
                 ref={fileInputRef}

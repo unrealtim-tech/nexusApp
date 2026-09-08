@@ -22,6 +22,12 @@ export interface HandoverContent {
   criticalPatients: Array<Record<string, unknown>>;
   /** F1-H03 — lab results, referrals, medications still pending. */
   pendingTasks: Array<Record<string, unknown>>;
+  /**
+   * Post-shift photos the worker attached. The backend handover has no image
+   * field, so these are carried as tagged entries inside the free-form arrays
+   * (see shared/handover/handoverImages) and split back out here.
+   */
+  shiftImages: string[];
   submittedAt: string;
   /** Worker can still edit until this instant (1h after clock-out). */
   editableUntil: string;

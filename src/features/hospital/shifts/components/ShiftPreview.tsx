@@ -11,6 +11,7 @@ import {
 import { Button } from "@/shared/components/ui/Button";
 import { formatNaira } from "@/shared/utils/currency";
 import { formatDate, formatTime } from "@/shared/utils/date";
+import { ApiError } from "@/lib/apiError";
 import { useHospitalShift } from "../hooks/useHospitalShift";
 import { useShiftDraftStore } from "../hooks/useShiftDraftStore";
 import { appToast } from "@/shared/components/feedback/toast";
@@ -18,6 +19,8 @@ import { URGENCY_BONUS_PCT, type ShiftFormData } from "../types";
 
 interface Props {
   data: ShiftFormData;
+  /** When set, broadcasting is blocked and this reason is shown (e.g. wallet short). */
+  disabledReason?: string;
   onBack: () => void;
   onBroadcast: () => void;
 }
@@ -105,7 +108,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ShiftPreview({ data, onBack, onBroadcast }: Props) {
+export function ShiftPreview({ data, disabledReason, onBack, onBroadcast }: Props) {
   const [broadcasting, setBroadcasting] = useState(false);
   const { createShift } = useHospitalShift();
   const { clearDraft } = useShiftDraftStore();
@@ -125,6 +128,7 @@ export function ShiftPreview({ data, onBack, onBroadcast }: Props) {
   const grandTotal = preDiscountTotal - discountAmount;
 
   const handleBroadcast = async () => {
+    if (disabledReason) return;
     setBroadcasting(true);
     try {
       await createShift(data);
@@ -132,7 +136,11 @@ export function ShiftPreview({ data, onBack, onBroadcast }: Props) {
       appToast.success("Shift broadcasted!", "Your shift is now live and visible to matched clinicians.");
       onBroadcast();
     } catch (error) {
-      appToast.fromError(error, "Failed to broadcast shift. Please try again.");
+      if (error instanceof ApiError && error.status === 402) {
+        appToast.error("Wallet balance too low", error.message);
+      } else {
+        appToast.fromError(error, "Failed to broadcast shift. Please try again.");
+      }
     } finally {
       setBroadcasting(false);
     }
@@ -409,9 +417,15 @@ export function ShiftPreview({ data, onBack, onBroadcast }: Props) {
 
         {/* Actions */}
         <div className="space-y-3">
+          {disabledReason && (
+            <p className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-800 dark:bg-warning-950 dark:text-warning-300">
+              {disabledReason}
+            </p>
+          )}
           <Button
             onClick={handleBroadcast}
             isLoading={broadcasting}
+            disabled={Boolean(disabledReason)}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-secondary-700 to-secondary-600 py-4 text-base font-bold uppercase tracking-widest text-white hover:from-secondary-600 hover:to-secondary-500"
           >
             <Radio className="h-5 w-5" />

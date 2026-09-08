@@ -31,6 +31,8 @@ export function VirtualCallScreen({
 }) {
   const hospitalName = shift.hospital_name ?? "Hospital";
   const connected = call.state === "connected";
+  const consultEnded = call.consultation?.status === "ended";
+  const hospitalPresent = call.present;
   const clockedIn = Boolean(clockIn) || Boolean(call.consultation?.clock_in_recorded);
   const clockInTime = clockIn
     ? new Date(clockIn.at).toLocaleTimeString("en-US", {
@@ -95,17 +97,24 @@ export function VirtualCallScreen({
               <VideoOff className="h-10 w-10 text-neutral-400" />
             </div>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              {call.state === "ended"
-                ? "You've left the consultation call."
-                : "You're not connected to the consultation call."}
+              {consultEnded
+                ? "The hospital has ended this consultation."
+                : call.state === "ended"
+                  ? "You've left the consultation call."
+                  : hospitalPresent
+                    ? "The hospital is on the call and waiting for you."
+                    : "Waiting for the hospital to start the call. You can join as soon as they're on."}
             </p>
-            <Button
-              type="button"
-              onClick={call.openPreJoin}
-              className="bg-brand-600 hover:bg-brand-700 text-white"
-            >
-              {call.state === "ended" ? "Rejoin call" : "Join call"}
-            </Button>
+            {!consultEnded && (
+              <Button
+                type="button"
+                onClick={call.openPreJoin}
+                disabled={!hospitalPresent && call.state !== "ended"}
+                className="bg-brand-600 hover:bg-brand-700 text-white"
+              >
+                {call.state === "ended" ? "Rejoin call" : "Join call"}
+              </Button>
+            )}
           </section>
         )}
 

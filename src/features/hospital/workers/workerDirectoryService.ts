@@ -1,3 +1,10 @@
+import apiClient from "@/lib/apiClient";
+import type {
+  ApiShift,
+  ApiShiftListResponse,
+} from "@/features/hospital/shifts/types";
+import { getWorkerPublic } from "./workerPublicService";
+
 export type WorkerLicenseStatus = "verified" | "pending";
 
 export type WorkerAvailability =
@@ -45,20 +52,87 @@ export function availabilityDisplay(availability: WorkerAvailability): {
   }
 }
 
+function mapAvailability(raw: string): WorkerAvailability {
+  const v = raw.toLowerCase();
+  if (v.includes("shift") || v.includes("busy")) return { kind: "on_shift" };
+  if (v.includes("now") || v === "available" || v.includes("online"))
+    return { kind: "available_now" };
+  return { kind: "available_today" };
+}
+
 /**
- * Worker directory data for the Workers page and the dashboard's "Nearby
- * Available Workers" card.
+ * Worker directory for the hospital Workers page.
  *
- * There is no backend endpoint yet that returns a hospital-scoped workforce
- * pool — the only clinician listing in nexus-backend is the platform-wide
- * `GET /api/v1/admin/clinicians`, which has no distance/availability/rating
- * fields. Rather than fabricate rows, these return real empty results (the
- * UI shows empty states) until a matching endpoint exists; see the shape
- * documentation below for what it should return.
+ * There is no hospital-scoped workforce endpoint in nexus-backend, so the
+ * directory is built from the hospital's own shifts: every clinician that has
+ * been assigned (i.e. accepted an offer) is fetched from the ungated
+ * `GET /api/v1/workers/{id}` profile. Fields the profile doesn't carry
+ * (years of experience, certificates, languages, cancellation rate) are left
+ * blank rather than fabricated; `history` is reconstructed from the shifts
+ * this hospital ran with that clinician.
  */
 export const WorkerDirectoryService = {
   async getWorkers(): Promise<DirectoryWorker[]> {
-    return [];
+    let shifts: ApiShift[] = [];
+    try {
+      const res = await apiClient.get<ApiShiftListResponse>("/api/v1/shifts", {
+        params: { page: 1, page_size: 100 },
+      });
+      shifts = res.data.shifts;
+    } catch {
+      return [];
+    }
+
+    const byClinician = new Map<string, ApiShift[]>();
+    for (const s of shifts) {
+      if (!s.assigned_clinician_id) continue;
+      const list = byClinician.get(s.assigned_clinician_id) ?? [];
+      list.push(s);
+      byClinician.set(s.assigned_clinician_id, list);
+    }
+
+    const results = await Promise.allSettled(
+      [...byClinician.keys()].map((id) => getWorkerPublic(id)),
+    );
+
+    return results.flatMap((r) => {
+      if (r.status !== "fulfilled") return [];
+      const w = r.value;
+      const theirShifts = (byClinician.get(w.id) ?? []).sort(
+        (a, b) =>
+          new Date(b.scheduled_start).getTime() -
+          new Date(a.scheduled_start).getTime(),
+      );
+      return [
+        {
+          id: w.id,
+          name: `${w.first_name} ${w.last_name}`.trim(),
+          credential: w.role_title,
+          role: w.role_title,
+          yearsExperience: 0,
+          distanceMi: 0,
+          rating: Number(w.rating.toFixed(1)),
+          shiftsDone: Number(w.completed_shifts),
+          license: w.is_verified ? "verified" : "pending",
+          availability: mapAvailability(w.availability),
+          nearby: false,
+          recommended: w.is_verified && w.rating >= 4.5,
+          bio: "",
+          acceptanceRatePct: Math.round(w.acceptance_rate_pct ?? 0),
+          cancellationRatePct: 0,
+          certificates: w.specialty ? [w.specialty] : [],
+          languages: [],
+          history: theirShifts.map((s) => ({
+            shift: s.shift_label ?? s.role_title,
+            date: new Date(s.scheduled_start).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+          })),
+        } satisfies DirectoryWorker,
+      ];
+    });
   },
 
   async getNearbyAvailable(_limit = 3): Promise<DirectoryWorker[]> {
