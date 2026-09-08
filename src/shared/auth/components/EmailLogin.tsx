@@ -3,9 +3,15 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { Button } from "@/shared/components/ui/Button";
 import { NexusCareLogo } from "@/shared/components/ui/NexusCareLogo";
-import { Mail, Check, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Mail,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+  ArrowLeftRight,
+} from "lucide-react";
 
-import { useAuthStore } from "@/shared/auth/store/authStore";
+import { useAuthStore, type AuthRole } from "@/shared/auth/store/authStore";
 import apiClient from "@/lib/apiClient";
 import { ApiError } from "@/lib/apiError";
 import { appToast } from "@/shared/components/feedback/toast";
@@ -31,7 +37,7 @@ export function EmailLogin() {
   const [isVisible, setIsVisible] = useState(false);
   const [healthWorkerFallback, setHealthWorkerFallback] = useState(false);
 
-  const { pendingEmail, clearPendingEmail } = useAuthStore();
+  const { pendingEmail, clearPendingEmail, setActiveAuthFlow } = useAuthStore();
 
   // Animation + autofill on mount
   useEffect(() => {
@@ -59,6 +65,35 @@ export function EmailLogin() {
 
   const activeAuthFlow = useAuthStore((s) => s.activeAuthFlow);
   const roleFromStore = activeAuthFlow?.role ?? null;
+
+  // "About to sign in as / register as" banner.
+  // Role context comes from the active auth flow; if the user opened this page
+  // directly (no flow set), fall back to the last-selected role, then default
+  // to health worker.
+  const ROLE_LABELS: Record<AuthRole, string> = {
+    "health-worker": "Health Worker",
+    hospital: "Hospital Administrator",
+  };
+  const storedSelectedRole = localStorage.getItem("selectedRole");
+  const currentRole: AuthRole =
+    roleFromStore ??
+    (storedSelectedRole === "hospital" || storedSelectedRole === "health-worker"
+      ? storedSelectedRole
+      : "health-worker");
+  const currentAction = activeAuthFlow?.action ?? "login";
+  const otherRole: AuthRole =
+    currentRole === "hospital" ? "health-worker" : "hospital";
+
+  const handleSwitchRole = () => {
+    // Per scope decision: only flip the role on the active auth flow, leaving
+    // action / origin (and the legacy selectedRole / authFlowOrigin) untouched.
+    setActiveAuthFlow({
+      role: otherRole,
+      action: activeAuthFlow?.action ?? "login",
+      origin: activeAuthFlow?.origin ?? "landing",
+    });
+    setError("");
+  };
 
   const handleSendOTP = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -161,6 +196,25 @@ export function EmailLogin() {
           </div>
 
           <CardContent className="px-6 py-8 flex-1 flex flex-col justify-center">
+            {/* Role context: "About to sign in / register as" + switch */}
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 px-4 py-3">
+              <p className="text-sm text-onboarding-textSecondary dark:text-neutral-400">
+                {currentAction === "register"
+                  ? "About to register as:"
+                  : "About to sign in as:"}{" "}
+                <span className="font-semibold text-onboarding-textPrimary dark:text-neutral-100">
+                  {ROLE_LABELS[currentRole]}
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={handleSwitchRole}
+                className="flex items-center gap-1.5 text-sm font-medium text-secondary-600 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-300 transition-colors"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                Switch to {ROLE_LABELS[otherRole]}
+              </button>
+            </div>
             {justRegistered && (
               <div className="mb-8 flex items-start gap-3 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-4 py-3">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
