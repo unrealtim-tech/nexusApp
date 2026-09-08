@@ -6,6 +6,7 @@ import {
   Check,
   ClipboardList,
   FileText,
+  Image as ImageIcon,
   Plus,
   Printer,
   Wrench,
@@ -352,8 +353,39 @@ export function HandoverReportDetailPage() {
 
                     <section className="mt-7">
                       <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        <ImageIcon className="h-4 w-4" />
+                        4. Shift Photos
+                      </h2>
+                      {report.handover.shiftImages.length === 0 ? (
+                        <p className="mt-2.5 text-sm text-neutral-500 dark:text-neutral-500">
+                          No photos attached.
+                        </p>
+                      ) : (
+                        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {report.handover.shiftImages.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block aspect-square overflow-hidden rounded-xl border border-neutral-100 dark:border-neutral-800"
+                            >
+                              <img
+                                src={url}
+                                alt={`Shift photo ${i + 1}`}
+                                loading="lazy"
+                                className="h-full w-full object-cover transition-transform hover:scale-105"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="mt-7">
+                      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                         <Wrench className="h-4 w-4" />
-                        4. Equipment Status
+                        5. Equipment Status
                       </h2>
                       <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-400">
                         {report.handover.equipmentStatus?.trim() ||
@@ -382,7 +414,7 @@ export function HandoverReportDetailPage() {
 
                 <section className="mt-7">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                    5. Compensation
+                    6. Compensation
                   </h2>
                   <div className="mt-2.5 flex items-center justify-between rounded-xl bg-neutral-50 px-5 py-4 dark:bg-neutral-800">
                     <div>

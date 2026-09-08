@@ -162,14 +162,22 @@ export function ReviewApplicationsPage() {
         ) : !current ? (
           <EmptyState
             icon={<EmptyStateIcon icon={UserSearch} />}
-            title="No applications yet"
-            description="Applicants for this shift will appear here for review."
+            title={
+              ranked.length > 0
+                ? "No formal applications yet"
+                : "No applications yet"
+            }
+            description={
+              ranked.length > 0
+                ? `${ranked.length} worker${ranked.length === 1 ? " has" : "s have"} expressed interest in this shift. Review and select them from the shift's Interested Workers list.`
+                : "Applicants for this shift will appear here for review."
+            }
             action={
               <button
                 onClick={backToShift}
                 className="mt-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
-                Back to Shift
+                {ranked.length > 0 ? "View Interested Workers" : "Back to Shift"}
               </button>
             }
           />

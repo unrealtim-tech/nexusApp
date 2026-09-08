@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import apiClient from "@/lib/apiClient";
 import {
   URGENCY_BONUS_PCT,
-  type ApiShift,
+  type ApiShiftDetail,
   type ApiShiftListResponse,
   type ApiShiftPriority,
   type ApiShiftStatus,
@@ -126,7 +126,7 @@ export type UseHospitalShiftResult = {
     page?: number;
     page_size?: number;
   }) => Promise<ApiShiftListResponse>;
-  getShiftDetails: (shift_id: string) => Promise<ApiShift>;
+  getShiftDetails: (shift_id: string) => Promise<ApiShiftDetail>;
   getShiftApplications: (params: {
     shift_id: string;
     page?: number;
@@ -246,7 +246,7 @@ export function useHospitalShift(): UseHospitalShiftResult {
     async (shift_id: string) => {
       setLastError(null);
       try {
-        const res = await apiClient.get<ApiShift>(
+        const res = await apiClient.get<ApiShiftDetail>(
           `/api/v1/shifts/${encodeURIComponent(shift_id)}`,
         );
         return res.data;

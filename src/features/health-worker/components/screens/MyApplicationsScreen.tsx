@@ -137,33 +137,22 @@ export function MyApplicationsScreen({
                   ) : entry.kind === "interest" ? (
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                        Pending Hospital Selection
+                        Pending hospital selection
                       </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="border-error-200 text-error-600 hover:bg-error-50 dark:border-error-800 dark:text-error-400 dark:hover:bg-error-950"
-                          isLoading={withdrawingId === entry.shift_id}
-                          disabled={
-                            withdrawingId === entry.shift_id ||
-                            !["open"].includes(entry.shift_status)
-                          }
-                          onClick={() => handleWithdraw(entry)}
-                        >
-                          Withdraw
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs font-medium text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950"
-                          onClick={() => onRespondToOffer(entry.shift_id)}
-                        >
-                          Respond to Offer
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-error-200 text-error-600 hover:bg-error-50 dark:border-error-800 dark:text-error-400 dark:hover:bg-error-950"
+                        isLoading={withdrawingId === entry.shift_id}
+                        disabled={
+                          withdrawingId === entry.shift_id ||
+                          !["open"].includes(entry.shift_status)
+                        }
+                        onClick={() => handleWithdraw(entry)}
+                      >
+                        Withdraw
+                      </Button>
                     </div>
                   ) : (
                     <p className="text-xs text-neutral-400 dark:text-neutral-500">

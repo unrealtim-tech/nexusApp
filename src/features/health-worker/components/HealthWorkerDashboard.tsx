@@ -59,6 +59,7 @@ import { PatientDetailScreen } from "./screens/PatientDetailScreen";
 import { ConsultationScreen } from "./screens/ConsultationScreen";
 import { ClinicalReviewScreen } from "./screens/ClinicalReviewScreen";
 import { HandoverScreen } from "./screens/HandoverScreen";
+import { makeImageEntry } from "@/shared/handover/handoverImages";
 import { EarningsScreen } from "./screens/EarningsScreen";
 import { ProfileScreen, type ProfileEditableFields } from "./screens/ProfileScreen";
 import { NotificationsScreen } from "./screens/NotificationsScreen";
@@ -300,7 +301,13 @@ function WorkerCallStrip({
         <button
           type="button"
           onClick={call.openPreJoin}
-          className="rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-bold transition-colors hover:bg-brand-700"
+          disabled={!call.present && call.state !== "ended"}
+          title={
+            !call.present && call.state !== "ended"
+              ? "Waiting for the hospital to start the call"
+              : undefined
+          }
+          className="rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-bold transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {call.state === "ended" ? "Rejoin" : "Join call"}
         </button>
@@ -321,6 +328,13 @@ export function HealthWorkerDashboard() {
   const [scheduleTab, setScheduleTab] = useState<ScheduleTab>("upcoming");
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Marketplace distance filter — the only filter backed by a real query param
+  // (`radius_km` on GET /worker/shifts/nearby). Changing it re-fetches; the
+  // other marketplace filters are client-side inside MarketplaceScreen.
+  const MARKET_DEFAULT_RADIUS_KM = 5;
+  const [marketRadiusKm, setMarketRadiusKm] = useState(MARKET_DEFAULT_RADIUS_KM);
+  const [isNearbyRefetching, setIsNearbyRefetching] = useState(false);
+
   // Data — each of these three calls fails independently on the real backend
   // (nearby-shift discovery has a live bug unrelated to the other two), so
   // they're tracked with separate error state rather than one shared flag.
@@ -340,7 +354,11 @@ export function HealthWorkerDashboard() {
   const [isAccepting, setIsAccepting] = useState(false);
 
   const [activeShift, setActiveShift] = useState<ApiShift | null>(null);
-  const call = useVirtualCallRoom(activeShift?.id, "health worker consultation");
+  const call = useVirtualCallRoom(
+    activeShift?.id,
+    "health worker consultation",
+    "worker",
+  );
   // Attendance for the shift in progress — recorded on clock-in (physical &
   // virtual alike). For virtual shifts the LiveKit webhook also records it on
   // connect; `call.consultation.clock_in_recorded` is the source of truth there.
@@ -485,6 +503,31 @@ export function HealthWorkerDashboard() {
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-query just the nearby-shift list when the marketplace distance changes.
+  const refetchNearbyShifts = useCallback(async (radiusKm: number) => {
+    setIsNearbyRefetching(true);
+    setNearbyError(null);
+    try {
+      const result = await workerApi.getNearbyShifts({ radius_km: radiusKm });
+      setNearbyShifts(result);
+    } catch (err) {
+      setNearbyError(
+        err instanceof ApiError ? err.message : "Failed to load nearby shifts.",
+      );
+    } finally {
+      setIsNearbyRefetching(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRadiusChange = useCallback(
+    (km: number) => {
+      setMarketRadiusKm(km);
+      refetchNearbyShifts(km);
+    },
+    [refetchNearbyShifts],
+  );
 
   useEffect(() => {
     loadDashboardData();
@@ -776,7 +819,10 @@ export function HealthWorkerDashboard() {
     setView("active-shift");
   }
 
-  async function handleSubmitHandover(instructions: string) {
+  async function handleSubmitHandover(
+    instructions: string,
+    imageUrls: string[] = [],
+  ) {
     if (!selectedShiftId) return;
     setIsSubmittingHandover(true);
     setHandoverError(null);
@@ -784,6 +830,9 @@ export function HealthWorkerDashboard() {
       const response = await workerApi.submitHandover(selectedShiftId, {
         patients_seen: patients.length,
         instructions,
+        // The handover payload has no image field; ride the photos along in
+        // pending_tasks as tagged entries (see shared/handover/handoverImages).
+        pending_tasks: imageUrls.map((url) => makeImageEntry(url)),
       });
       setHandover(response);
     } catch (err) {
@@ -855,8 +904,11 @@ export function HealthWorkerDashboard() {
             onOpenShift={(shift) => openShiftDetail(shift.shift_id)}
             onMyApplications={() => setView("my-applications")}
             isLoading={isLoading}
+            isRefetching={isNearbyRefetching}
             loadError={nearbyError}
             onRetryLocation={loadDashboardData}
+            radiusKm={marketRadiusKm}
+            onRadiusChange={handleRadiusChange}
           />
         );
       case "schedule":
@@ -899,6 +951,7 @@ export function HealthWorkerDashboard() {
             isLoading={isLoading}
             isBookingActive={isBookingActive}
             onMarketplace={() => goTab("marketplace")}
+            onMyApplications={() => setView("my-applications")}
             onOpenShift={openShiftDetail}
           />
         );
@@ -929,6 +982,11 @@ export function HealthWorkerDashboard() {
           remotePresentName={
             call.presentName ?? activeShift?.hospital_name ?? null
           }
+          joinBlockedReason={
+            call.present
+              ? undefined
+              : "Waiting for the hospital to start the call — you can join as soon as they're on."
+          }
           joining={call.state === "connecting"}
           error={call.error || undefined}
           onJoin={call.join}
@@ -947,6 +1005,13 @@ export function HealthWorkerDashboard() {
   }
 
   if (view === "shift-detail" && selectedShiftId) {
+    const alreadyExpressedInterest =
+      applications.some(
+        (a) => a.shift_id === selectedShiftId && a.kind === "interest",
+      ) ||
+      nearbyShifts.some(
+        (s) => s.shift_id === selectedShiftId && s.interest_expressed,
+      );
     return (
       <Shell activeTab={activeTab} onTabChange={goTab} user={user} onNotifications={() => setView("notifications")} showTabs={false}>
         <ShiftDetailScreen
@@ -955,6 +1020,8 @@ export function HealthWorkerDashboard() {
           onInterested={handleInterested}
           onLoaded={setSelectedShift}
           isSubmitting={isInterestSubmitting}
+          alreadyExpressedInterest={alreadyExpressedInterest}
+          onClockIn={openShiftEntry}
         />
       </Shell>
     );

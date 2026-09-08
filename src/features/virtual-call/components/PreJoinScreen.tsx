@@ -32,6 +32,12 @@ interface PreJoinScreenProps {
   remotePresentName: string | null;
   /** What the other side is called, e.g. "Clinician" (default) or "Hospital". */
   remoteRoleLabel?: string;
+  /**
+   * When set, the "Join now" button is disabled and this reason is shown.
+   * Used for the health worker, who can only join once the hospital has
+   * started the call.
+   */
+  joinBlockedReason?: string;
   /** True while the parent is establishing the LiveKit connection. */
   joining: boolean;
   /** Connection error surfaced from the parent's join attempt. */
@@ -99,6 +105,7 @@ export function PreJoinScreen({
   remotePresent,
   remotePresentName,
   remoteRoleLabel = "Clinician",
+  joinBlockedReason,
   joining,
   error,
   onJoin,
@@ -424,11 +431,14 @@ export function PreJoinScreen({
         <Button
           onClick={handleJoin}
           isLoading={joining}
-          disabled={joining || acquiring}
+          disabled={joining || acquiring || Boolean(joinBlockedReason)}
           className="w-full"
         >
           {joining ? "Joining…" : "Join now"}
         </Button>
+        {joinBlockedReason && (
+          <p className="text-sm text-white/60">{joinBlockedReason}</p>
+        )}
         <button
           type="button"
           onClick={onCancel}

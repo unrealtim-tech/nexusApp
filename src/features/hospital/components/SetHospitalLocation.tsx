@@ -175,9 +175,11 @@ export function SetHospitalLocation() {
             </p>
             <p className="text-xs leading-relaxed text-onboarding-textSecondary dark:text-neutral-400">
               Workers must be within{" "}
-              <span className="font-semibold text-secondary-700 dark:text-secondary-400">100m</span> of
-              this entrance to record their arrival. Geofencing is automatically
-              applied to all assigned shifts.
+              <span className="font-semibold text-secondary-700 dark:text-secondary-400">
+                10&nbsp;km
+              </span>{" "}
+              of this entrance to record their arrival. Geofencing is
+              automatically applied to all assigned shifts.
             </p>
           </div>
         </div>

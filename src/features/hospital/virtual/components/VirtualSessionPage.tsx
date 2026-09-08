@@ -41,7 +41,11 @@ export function VirtualSessionPage() {
   const [physician, setPhysician] = useState<WorkerPublicDetail | null>(null);
   const [now, setNow] = useState(() => new Date());
 
-  const call = useVirtualCallRoom(shiftId, "hospital virtual shift page");
+  const call = useVirtualCallRoom(
+    shiftId,
+    "hospital virtual shift page",
+    "hospital",
+  );
 
   // Load the real shift; recheck the call window every 30s so the button
   // flips from disabled -> enabled without a manual refresh.

@@ -6,6 +6,7 @@ import {
   Settings,
   Video,
   VideoOff,
+  Volume2,
 } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import { AvatarInitials } from "@/shared/components/ui/AvatarInitials";
@@ -140,6 +141,18 @@ export function CallStage({
           </span>
         )}
       </div>
+
+      {/* Audio blocked by the browser — tap to resume */}
+      {call.audioBlocked && (
+        <button
+          type="button"
+          onClick={call.resumeAudio}
+          className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full bg-warning-500 px-4 py-2 text-sm font-bold text-white shadow-lg"
+        >
+          <Volume2 className="h-4 w-4" />
+          Tap to enable call audio
+        </button>
+      )}
 
       {/* Floating control bar */}
       <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-2 backdrop-blur">

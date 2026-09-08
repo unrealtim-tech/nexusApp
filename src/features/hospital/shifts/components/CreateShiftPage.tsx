@@ -8,6 +8,7 @@ import { Select } from "@/shared/components/ui/Select";
 import { Modal } from "@/shared/components/ui/Modal";
 import { WizardSteps } from "@/shared/components/ui/WizardSteps";
 import { appToast } from "@/shared/components/feedback/toast";
+import { ApiError } from "@/lib/apiError";
 import { cn } from "@/shared/utils/cn";
 import { PATHS } from "@/routes/paths";
 import { useHospitalProfile } from "@/features/hospital/hooks/useHospitalProfile";
@@ -120,7 +121,12 @@ export function CreateShiftPage() {
   const [hospitalAddress, setHospitalAddress] = useState<string | null>(null);
   const { isLoading: isApprovalLoading, isApproved, status } =
     useHospitalApprovalStatus();
-  const { isLoading: isWalletLoading, isFunded, hasSubAccount } = useWalletFunding();
+  const {
+    isLoading: isWalletLoading,
+    isFunded,
+    hasSubAccount,
+    wallet,
+  } = useWalletFunding();
   const { createShift, previewShift } = useHospitalShift();
   const { draft, setDraft, clearDraft } = useShiftDraftStore();
 
@@ -133,6 +139,8 @@ export function CreateShiftPage() {
   const [customCertificate, setCustomCertificate] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  /** Authoritative shift cost from the backend preview (kobo), when available. */
+  const [previewTotalKobo, setPreviewTotalKobo] = useState<number | null>(null);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastDone, setBroadcastDone] = useState(false);
 
@@ -167,8 +175,20 @@ export function CreateShiftPage() {
   const taxes = (basePay + urgencyBonus) * TAX_RATE;
   const totalCost = basePay + urgencyBonus + serviceFee + taxes;
 
+  // The backend holds `grand_total_kobo` off the wallet at creation and 402s
+  // if the balance can't cover it — mirror that here so the hospital isn't
+  // surprised at the end of the wizard.
+  const requiredKobo = previewTotalKobo ?? Math.round(totalCost * 100);
+  const walletBalanceKobo = wallet?.balanceKobo ?? 0;
+  const shortfallKobo = Math.max(0, requiredKobo - walletBalanceKobo);
+  const walletShort =
+    !isWalletLoading && wallet != null && requiredKobo > 0 && shortfallKobo > 0;
+
   const gateBlocked = !isApprovalLoading && !isApproved;
-  const walletBlocked = !isWalletLoading && !isFunded;
+  const walletBlocked = (!isWalletLoading && !isFunded) || walletShort;
+
+  const nairaFmt = (kobo: number) =>
+    `₦${Math.round(kobo / 100).toLocaleString("en-NG")}`;
 
   const stepValid = useMemo(() => {
     switch (step) {
@@ -204,7 +224,12 @@ export function CreateShiftPage() {
   const handlePreview = async () => {
     setIsPreviewing(true);
     try {
-      await previewShift(withDuration(formData));
+      const preview = (await previewShift(withDuration(formData))) as
+        | { grand_total_kobo?: number }
+        | undefined;
+      if (typeof preview?.grand_total_kobo === "number") {
+        setPreviewTotalKobo(preview.grand_total_kobo);
+      }
     } catch {
       // Preview endpoint validation is advisory — still show the local preview.
     } finally {
@@ -221,7 +246,11 @@ export function CreateShiftPage() {
       setShowPreview(false);
       setBroadcastDone(true);
     } catch (err) {
-      appToast.fromError(err, "Failed to broadcast shift. Please try again.");
+      if (err instanceof ApiError && err.status === 402) {
+        appToast.error("Wallet balance too low", err.message);
+      } else {
+        appToast.fromError(err, "Failed to broadcast shift. Please try again.");
+      }
     } finally {
       setIsBroadcasting(false);
     }
@@ -309,9 +338,11 @@ export function CreateShiftPage() {
                 ? status === "rejected"
                   ? "Your hospital registration was not approved — contact support before creating shifts."
                   : "Your hospital registration is pending admin review. You can prepare a shift, but broadcasting is disabled until approval."
-                : hasSubAccount
-                  ? "Your hospital wallet has no funds yet — fund it before broadcasting a shift."
-                  : "Your hospital has no wallet yet — create one before broadcasting a shift."}
+                : !hasSubAccount
+                  ? "Your hospital has no wallet yet — create one before broadcasting a shift."
+                  : !isFunded
+                    ? "Your hospital wallet has no funds yet — fund it before broadcasting a shift."
+                    : `This shift needs ${nairaFmt(requiredKobo)} in your wallet to broadcast, but your balance is ${nairaFmt(walletBalanceKobo)}. Add ${nairaFmt(shortfallKobo)} first.`}
             </span>
             {walletBlocked && !gateBlocked && (
               <Button
@@ -788,9 +819,11 @@ export function CreateShiftPage() {
                 title={
                   gateBlocked
                     ? "Hospital registration must be approved first"
-                    : walletBlocked
-                      ? "Fund your hospital wallet first"
-                      : undefined
+                    : walletShort
+                      ? `Add ${nairaFmt(shortfallKobo)} to your wallet first`
+                      : walletBlocked
+                        ? "Fund your hospital wallet first"
+                        : undefined
                 }
                 onClick={handleBroadcast}
               >
@@ -811,6 +844,15 @@ export function CreateShiftPage() {
         {/* ShiftPreview submits the shift itself; onBroadcast fires after success. */}
         <ShiftPreview
           data={withDuration(formData)}
+          disabledReason={
+            gateBlocked
+              ? "Hospital registration must be approved before broadcasting."
+              : !hasSubAccount
+                ? "Create your hospital wallet before broadcasting."
+                : walletShort
+                  ? `Your wallet needs ${nairaFmt(requiredKobo)} to cover this shift (balance ${nairaFmt(walletBalanceKobo)}). Add ${nairaFmt(shortfallKobo)} first.`
+                  : undefined
+          }
           onBack={() => setShowPreview(false)}
           onBroadcast={() => {
             setShowPreview(false);

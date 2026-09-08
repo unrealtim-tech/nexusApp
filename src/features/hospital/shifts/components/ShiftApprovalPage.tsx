@@ -19,6 +19,10 @@ import {
   useHospitalShift,
   type RankedInterestedClinician,
 } from "@/features/hospital/shifts/hooks/useHospitalShift";
+import {
+  getWorkerPublic,
+  type WorkerPublicDetail,
+} from "@/features/hospital/workers/workerPublicService";
 import type {
   ApiShift,
   ApiShiftPriority,
@@ -148,6 +152,11 @@ export function ShiftApprovalPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
+  const [detailWorker, setDetailWorker] = useState<WorkerUi | null>(null);
+  const [detail, setDetail] = useState<WorkerPublicDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -216,11 +225,30 @@ export function ShiftApprovalPage() {
         "Worker approved",
         `${worker.display_name} has been assigned to this shift.`,
       );
+      setDetailWorker(null);
       await loadShift(shiftId, { showSpinner: false });
     } catch (error) {
       appToast.fromError(error, "Failed to approve worker. Please try again.");
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const openDetail = async (worker: WorkerUi) => {
+    setDetailWorker(worker);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      setDetail(await getWorkerPublic(worker.id));
+    } catch (err) {
+      setDetailError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't load this worker's profile.",
+      );
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -469,7 +497,11 @@ export function ShiftApprovalPage() {
                     key={worker.id}
                     className="flex flex-col gap-3 rounded-2xl border border-neutral-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900"
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openDetail(worker)}
+                      className="flex items-center gap-3 rounded-lg text-left transition-colors hover:opacity-80"
+                    >
                       <div className="relative flex-shrink-0">
                         <div
                           className={cn(
@@ -504,10 +536,20 @@ export function ShiftApprovalPage() {
                           {typeof worker.acceptance_rate_pct === "number" &&
                             ` • ${Math.round(worker.acceptance_rate_pct)}% acceptance`}
                         </p>
+                        <span className="mt-0.5 inline-block text-xs font-semibold text-secondary-700 dark:text-secondary-400">
+                          View details
+                        </span>
                       </div>
-                    </div>
+                    </button>
 
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openDetail(worker)}
+                      >
+                        Details
+                      </Button>
                       <Button
                         size="sm"
                         isLoading={approvingId === worker.id}
@@ -751,6 +793,138 @@ export function ShiftApprovalPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Interested-worker profile */}
+      <Modal
+        isOpen={!!detailWorker}
+        onClose={() => setDetailWorker(null)}
+        title="Worker details"
+        size="sm"
+      >
+        {detailWorker && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary-100 text-sm font-semibold text-secondary-700 dark:bg-secondary-950 dark:text-secondary-300">
+                {initials(detailWorker.display_name)}
+              </div>
+              <div>
+                <p className="text-base font-bold text-neutral-900 dark:text-neutral-50">
+                  {detail
+                    ? `${detail.first_name} ${detail.last_name}`.trim()
+                    : detailWorker.display_name}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {detail?.role_title ?? "Clinician"}
+                  {detail?.specialty ? ` · ${detail.specialty}` : ""}
+                </p>
+              </div>
+            </div>
+
+            {detailLoading && (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Loading profile…
+              </p>
+            )}
+            {detailError && (
+              <p className="text-sm text-error-600 dark:text-error-400">
+                {detailError}
+              </p>
+            )}
+
+            {detail && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={detail.is_verified ? "success" : "warning"}>
+                    {detail.is_verified ? "License verified" : "License pending"}
+                  </Badge>
+                  <Badge
+                    variant={detail.identity_verified ? "success" : "warning"}
+                  >
+                    {detail.identity_verified ? "ID verified" : "ID unverified"}
+                  </Badge>
+                  {!detail.is_active && <Badge variant="error">Inactive</Badge>}
+                </div>
+
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Rating
+                    </dt>
+                    <dd className="flex items-center gap-1 font-semibold text-neutral-900 dark:text-neutral-50">
+                      <Star className="h-3.5 w-3.5 fill-warning-400 text-warning-400" />
+                      {detail.rating.toFixed(1)} ({detail.rating_count})
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Completed shifts
+                    </dt>
+                    <dd className="font-semibold text-neutral-900 dark:text-neutral-50">
+                      {detail.completed_shifts}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Acceptance rate
+                    </dt>
+                    <dd className="font-semibold text-neutral-900 dark:text-neutral-50">
+                      {detail.acceptance_rate_pct != null
+                        ? `${Math.round(detail.acceptance_rate_pct)}%`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Licence no.
+                    </dt>
+                    <dd className="font-semibold text-neutral-900 dark:text-neutral-50">
+                      {detail.license_number ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Distance
+                    </dt>
+                    <dd className="font-semibold text-neutral-900 dark:text-neutral-50">
+                      {typeof detailWorker.distance_km === "number"
+                        ? `${detailWorker.distance_km.toFixed(1)} km`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-neutral-400 dark:text-neutral-500">
+                      Qualifications
+                    </dt>
+                    <dd className="font-semibold text-neutral-900 dark:text-neutral-50">
+                      {detailWorker.quals_match ? "All met" : "Gap"}
+                    </dd>
+                  </div>
+                </dl>
+              </>
+            )}
+
+            {!shift?.assigned_clinician_id && (
+              <div className="flex justify-end gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailWorker(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  size="sm"
+                  isLoading={approvingId === detailWorker.id}
+                  onClick={() => handleApprove(detailWorker)}
+                  className="bg-secondary-800 text-white hover:bg-secondary-900"
+                >
+                  Approve &amp; assign
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

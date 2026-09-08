@@ -75,6 +75,12 @@ type AuthStoreState = {
     user: AuthUser;
   }) => void;
 
+  // Clinician registration returns a lone access token (no refresh token or
+  // user yet). It's persisted like clinicianId so the health-worker onboarding
+  // steps that follow (identity, profile, payout) stay authenticated across a
+  // page refresh. The real login afterwards replaces it with a full session.
+  setOnboardingAccessToken: (accessToken: string) => void;
+
   clearAuthSession: () => void;
 };
 
@@ -138,6 +144,11 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
     localStorage.setItem("userData", JSON.stringify(user));
 
     set({ accessToken, refreshToken, user });
+  },
+
+  setOnboardingAccessToken: (accessToken) => {
+    localStorage.setItem("accessToken", accessToken);
+    set({ accessToken });
   },
 
   clearAuthSession: () => {

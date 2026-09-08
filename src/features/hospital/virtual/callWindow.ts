@@ -16,8 +16,12 @@ export interface CallWindowInfo {
   message: string;
 }
 
-/** Mirrors the backend's ±60 min clock-in window (see nexus-backend `clock_in`). */
-const CALL_WINDOW_MINUTES = 60;
+/**
+ * How early (minutes before `scheduled_start`) the hospital may start the call.
+ * Kept deliberately tight — a virtual visit shouldn't begin well ahead of time.
+ * The rule is surfaced to hospitals in the UI, not just enforced silently.
+ */
+export const CALL_OPEN_LEAD_MINUTES = 2;
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString("en-US", {
@@ -27,10 +31,13 @@ function formatTime(date: Date): string {
 }
 
 /**
- * Computes whether the "Connect Device & Join Call" action should be enabled
+ * Computes whether the hospital's "start the call" action should be enabled
  * for a virtual shift, and what to tell the hospital admin when it isn't.
- * Kept in lockstep with `ShiftService::generate_virtual_call_token` in
- * nexus-backend, which enforces the same rule server-side.
+ *
+ * This is a client-side rule: the backend `/consult/token` endpoint is not
+ * time-gated, so this is what actually stops a hospital opening a visit far
+ * ahead of (or long after) its slot. The health-worker app never starts a
+ * call — it can only join once the hospital is present.
  */
 export function getCallWindowInfo(
   shift: {
@@ -72,20 +79,23 @@ export function getCallWindowInfo(
 
   const start = new Date(shift.scheduled_start);
   const end = new Date(shift.scheduled_end);
-  const opensAt = new Date(start.getTime() - CALL_WINDOW_MINUTES * 60_000);
-  const closesAt = new Date(end.getTime() + CALL_WINDOW_MINUTES * 60_000);
+  const opensAt = new Date(start.getTime() - CALL_OPEN_LEAD_MINUTES * 60_000);
+  const closesAt = end;
 
   if (now < opensAt) {
     return {
       state: "too_early",
-      message: `Call opens at ${formatTime(opensAt)} — 1 hour before the scheduled start.`,
+      message: `You can start this call from ${formatTime(opensAt)} — ${CALL_OPEN_LEAD_MINUTES} minutes before the scheduled start.`,
     };
   }
   if (now > closesAt) {
     return {
       state: "elapsed",
-      message: `The call window closed at ${formatTime(closesAt)} — 1 hour after the scheduled end.`,
+      message: `The call window closed at ${formatTime(closesAt)}, the scheduled end time.`,
     };
   }
-  return { state: "open", message: "Ready to connect." };
+  return {
+    state: "open",
+    message: `Ready to connect. This call would normally start at ${formatTime(start)}.`,
+  };
 }

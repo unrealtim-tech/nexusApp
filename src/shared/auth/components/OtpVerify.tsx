@@ -156,6 +156,13 @@ export function OtpVerify() {
           refreshToken: body.refresh_token!,
           user: body.user!,
         });
+      } else if (body.access_token) {
+        // Clinician registration returns a lone access_token (no refresh token
+        // or user yet). Persist it so the health-worker onboarding steps that
+        // follow (identity -> profile -> payout) send `Authorization: Bearer`
+        // and don't 401. The real login afterwards replaces it with a full
+        // session.
+        useAuthStore.getState().setOnboardingAccessToken(body.access_token);
       } else if (body.token) {
         // Backward compatibility with older token field
         localStorage.setItem("authToken", body.token as string);
