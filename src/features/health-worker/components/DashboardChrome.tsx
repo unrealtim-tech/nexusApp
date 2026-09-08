@@ -137,18 +137,37 @@ export function Metric({
   label,
   value,
   icon: Icon,
+  onClick,
 }: {
   label: string;
   value: string;
   icon: ComponentType<{ className?: string }>;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-neutral-900 dark:border dark:border-neutral-800">
+  const body = (
+    <>
       <Icon className="h-5 w-5 text-brand-700 dark:text-brand-400" />
       <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
       <p className="text-xl font-bold text-neutral-900 dark:text-neutral-50">{value}</p>
-    </div>
+    </>
   );
+
+  const className =
+    "rounded-2xl bg-white p-4 text-left shadow-sm dark:bg-neutral-900 dark:border dark:border-neutral-800";
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${className} w-full transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800`}
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <div className={className}>{body}</div>;
 }
 
 export function InfoTile({

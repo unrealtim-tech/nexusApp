@@ -3,6 +3,7 @@ import {
   BriefcaseMedical,
   Calendar,
   ChevronRight,
+  ClipboardList,
   Clock,
   Receipt,
   ShieldCheck,
@@ -25,6 +26,7 @@ export function HomeScreen({
   isLoading,
   isBookingActive,
   onMarketplace,
+  onMyApplications,
   onOpenShift,
 }: {
   user: AuthUser | null;
@@ -33,6 +35,7 @@ export function HomeScreen({
   isLoading: boolean;
   isBookingActive: boolean;
   onMarketplace: () => void;
+  onMyApplications: () => void;
   onOpenShift: (shiftId: string) => void;
 }) {
   const navigate = useNavigate();
@@ -137,25 +140,58 @@ export function HomeScreen({
             value={earnings ? formatKobo(earnings.this_month_kobo) : "—"}
             icon={Wallet}
           />
-          <Metric label="Pending Applications" value={String(pendingCount)} icon={Clock} />
+          <Metric
+            label="Pending Applications"
+            value={String(pendingCount)}
+            icon={Clock}
+            onClick={onMyApplications}
+          />
         </section>
 
-        <button
-          type="button"
-          onClick={onMarketplace}
-          className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm dark:border dark:border-neutral-800 dark:bg-neutral-900"
-        >
-          <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-brand-50 p-2 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-              <BriefcaseMedical className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-bold text-ink-900 dark:text-neutral-100">Marketplace</p>
-              <p className="text-xs text-ink-500 dark:text-neutral-400">Find new shifts near you</p>
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={onMarketplace}
+            className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm dark:border dark:border-neutral-800 dark:bg-neutral-900"
+          >
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-brand-50 p-2 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                <BriefcaseMedical className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-bold text-ink-900 dark:text-neutral-100">Marketplace</p>
+                <p className="text-xs text-ink-500 dark:text-neutral-400">Find new shifts near you</p>
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-5 w-5 text-ink-500 dark:text-neutral-400" />
-        </button>
+            <ChevronRight className="h-5 w-5 text-ink-500 dark:text-neutral-400" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onMyApplications}
+            className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm dark:border dark:border-neutral-800 dark:bg-neutral-900"
+          >
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-brand-50 p-2 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                <ClipboardList className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-bold text-ink-900 dark:text-neutral-100">My Applications</p>
+                <p className="text-xs text-ink-500 dark:text-neutral-400">
+                  Track your interests, offers &amp; placements
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {applications.length > 0 && (
+                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                  {applications.length}
+                </span>
+              )}
+              <ChevronRight className="h-5 w-5 text-ink-500 dark:text-neutral-400" />
+            </div>
+          </button>
+        </div>
 
         <section>
           <div className="mb-3 flex items-center justify-between">
