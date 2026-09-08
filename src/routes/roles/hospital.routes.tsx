@@ -6,6 +6,7 @@ import { ShiftSchedulePage } from "@/features/hospital/shifts/components/ShiftSc
 import { ShiftApprovalPage } from "@/features/hospital/shifts/components/ShiftApprovalPage";
 import { ReviewApplicationsPage } from "@/features/hospital/shifts/components/ReviewApplicationsPage";
 import { CreateShiftPage } from "@/features/hospital/shifts/components/CreateShiftPage";
+import { EditShiftPage } from "@/features/hospital/shifts/components/EditShiftPage";
 import { WorkersPage } from "@/features/hospital/workers/components/WorkersPage";
 import { VirtualShiftsPage } from "@/features/hospital/virtual/components/VirtualShiftsPage";
 import { VirtualSessionPage } from "@/features/hospital/virtual/components/VirtualSessionPage";
@@ -22,6 +23,9 @@ export const hospitalPageRoutes: RouteObject[] = [
   { path: "shifts", element: <ShiftSchedulePage /> },
   { path: "shifts/:shiftId", element: <ShiftApprovalPage /> },
   { path: "shifts/:shiftId/review", element: <ReviewApplicationsPage /> },
+  // Standalone edit screen — reachable by URL only, not linked from the shift
+  // details page (backend only supports rescheduling today; see EditShiftPage).
+  { path: "shifts/:shiftId/edit", element: <EditShiftPage /> },
   { path: "create-shift", element: <CreateShiftPage /> },
   { path: "virtual-shifts", element: <VirtualShiftsPage /> },
   { path: "virtual-shifts/:shiftId", element: <VirtualSessionPage /> },

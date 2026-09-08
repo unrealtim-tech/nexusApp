@@ -116,7 +116,7 @@ const CANCELLABLE_STATUSES: ApiShiftStatus[] = ["open", "assigned", "upcoming"];
 /** Shift Management list page matching the Figma redesign. */
 export function ShiftSchedulePage() {
   const navigate = useNavigate();
-  const { getShifts, getShiftApplications, cancelShift } = useHospitalShift();
+  const { getShifts, getInterestedClinicians, cancelShift } = useHospitalShift();
   const { isLoading: isWalletLoading, isFunded, hasSubAccount } = useWalletFunding();
   const { isLoading: isApprovalLoading, isApproved } = useHospitalApprovalStatus();
 
@@ -145,14 +145,15 @@ export function ShiftSchedulePage() {
         const res = await getShifts({ page: 1, page_size: 100 });
         const mapped = await Promise.all(
           res.shifts.map(async (shift) => {
+            // "Applicants" = everyone who wants this shift. Workers mostly hit
+            // "I'm Interested" (→ shift_interests), not the formal apply flow
+            // (→ shift_applications), and applying also records an interest, so
+            // the interested list is the correct superset. The old
+            // GET /applications count only saw formal applications and read 0.
             let applicants = 0;
             try {
-              const apps = await getShiftApplications({
-                shift_id: shift.id,
-                page: 1,
-                page_size: 1,
-              });
-              applicants = apps.pagination.total_items;
+              const interested = await getInterestedClinicians(shift.id);
+              applicants = interested.length;
             } catch {
               applicants = 0;
             }
@@ -171,7 +172,7 @@ export function ShiftSchedulePage() {
     return () => {
       cancelled = true;
     };
-  }, [getShifts, getShiftApplications, reloadKey]);
+  }, [getShifts, getInterestedClinicians, reloadKey]);
 
   const tabCounts = useMemo(() => {
     const count = (tab: Exclude<ShiftTab, "all">) =>
