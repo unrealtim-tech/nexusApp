@@ -53,7 +53,15 @@ export function WaitingRoomScreen({
                     </p>
                   </div>
                 </div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">{patient.chiefComplaint}</p>
+                {patient.chiefComplaint ? (
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    {patient.chiefComplaint}
+                  </p>
+                ) : patient.severityLevel ? (
+                  <span className="inline-flex w-fit items-center rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+                    {patient.severityLevel} severity
+                  </span>
+                ) : null}
                 <Button
                   type="button"
                   className="w-full bg-brand-700"
