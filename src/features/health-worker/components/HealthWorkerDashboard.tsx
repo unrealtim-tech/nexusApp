@@ -1383,11 +1383,12 @@ export function HealthWorkerDashboard() {
     );
   }
 
-  if (view === "patient-detail" && selectedPatient) {
+  if (view === "patient-detail" && selectedPatient && activeShift) {
     return (
       <Shell activeTab={activeTab} onTabChange={goTab} user={user} onNotifications={() => setView("notifications")} callBar={callBar}>
         <PatientDetailScreen
           patient={selectedPatient}
+          shiftId={activeShift.id}
           onBack={() => setView("active-shift")}
           onStartConsultation={() => handleStartConsultation(selectedPatient)}
         />
