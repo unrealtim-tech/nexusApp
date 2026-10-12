@@ -1,4 +1,8 @@
 import type { PredictionResponse } from "@/shared/patients/services/patientService";
+import type {
+  ConsultationVitals,
+  ConsultationMedication,
+} from "@/shared/patients/services/consultationNoteService";
 
 /**
  * A patient record captured during the current shift session.
@@ -21,12 +25,19 @@ export interface PatientRecord {
   intakeAt: string;
   status: "waiting" | "in-consultation" | "seen";
   prediction?: PredictionResponse | null;
+  /** Mirrors the real consultation-note fields once Clinical Review saves it
+   * to the backend (see consultationNoteService.ts) — `noteId` is set once
+   * the note exists there. */
   reportNotes?: {
+    noteId?: string;
     chiefComplaint: string;
     historyOfPresentIllness: string;
     assessment: string;
     clinicalPlan: string;
-    prescriptions: string;
+    diagnosis: string;
+    vitals: ConsultationVitals;
+    medications: ConsultationMedication[];
+    followUpAt: string;
   };
 }
 

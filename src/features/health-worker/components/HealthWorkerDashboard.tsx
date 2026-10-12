@@ -1241,11 +1241,12 @@ export function HealthWorkerDashboard() {
     );
   }
 
-  if (view === "clinical-review" && selectedPatient) {
+  if (view === "clinical-review" && selectedPatient && activeShift) {
     return (
       <Shell activeTab={activeTab} onTabChange={goTab} user={user} onNotifications={() => setView("notifications")} callBar={callBar}>
         <ClinicalReviewScreen
           patient={selectedPatient}
+          shiftId={activeShift.id}
           onBack={() => setView("consultation")}
           onFinalize={handleFinalizeReport}
         />
