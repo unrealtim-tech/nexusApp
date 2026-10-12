@@ -22,6 +22,40 @@ export interface ConsultParticipant {
   clocked_in_at: string | null;
 }
 
+/** `consult_queue.state` — `removed` is a real value (a withdrawn/cancelled
+ * entry), not just the three states that move forward. */
+export type QueueEntryState = "waiting" | "in_consult" | "seen" | "removed";
+
+export interface ConsultQueuePatientView {
+  entry_id: string;
+  patient_id: string;
+  full_name: string;
+  /** Float, not an integer — mirrors the ML model's input type. */
+  age: number;
+  gender: string;
+  severity_level: string;
+  predictive_risk_score: number | null;
+  state: QueueEntryState;
+  /** A sort key, not an index — not unique, not renumbered when entries are removed. */
+  position: number;
+  called_at: string | null;
+  seen_at: string | null;
+  queued_at: string;
+  has_clinical_note: boolean;
+  has_handover_note: boolean;
+}
+
+export interface ConsultWaitingRoomView {
+  waiting: number;
+  in_consult: number;
+  seen: number;
+  /** Includes removed entries — doesn't equal waiting + in_consult + seen. */
+  total: number;
+  /** Empty for platform-admin viewers (SuperAdmin/OperationsAdmin), who get
+   * counts but never patient identities. */
+  patients: ConsultQueuePatientView[];
+}
+
 export interface ConsultSession {
   session_id: string;
   shift_id: string | null;
@@ -34,6 +68,7 @@ export interface ConsultSession {
   clock_in_recorded: boolean;
   participants: ConsultParticipant[];
   recording: { enabled: boolean; status: string | null };
+  waiting_room: ConsultWaitingRoomView;
 }
 
 interface VirtualCallTokenResponse {
