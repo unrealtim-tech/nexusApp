@@ -39,9 +39,11 @@ function statusOf(h: HandoverResponse): DisplayStatus {
 export function HandoverReviewScreen({
   shiftId,
   onBack,
+  onViewPatientRecords,
 }: {
   shiftId: string;
   onBack: () => void;
+  onViewPatientRecords?: () => void;
 }) {
   const { getHandover, appealHandover, getEarnings } = useHealthWorkerShifts();
 
@@ -135,6 +137,16 @@ export function HandoverReviewScreen({
     <>
       <Header title="Handover Status" subtitle="Approval & payout" onBack={onBack} />
       <main className="space-y-5 px-5 py-4">
+        {onViewPatientRecords && (
+          <button
+            type="button"
+            onClick={onViewPatientRecords}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            View Patient Records
+          </button>
+        )}
+
         {isLoading && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading…</p>
         )}

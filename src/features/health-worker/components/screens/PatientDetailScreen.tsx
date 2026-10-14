@@ -106,22 +106,27 @@ export function PatientDetailScreen({
             <CardTitle className="text-base">Chief Complaint</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-sm text-neutral-600 dark:text-neutral-400">
-            {patient.chiefComplaint}
+            {patient.chiefComplaint || "Not recorded yet."}
           </CardContent>
         </Card>
 
-        <section>
-          <p className="mb-3 text-sm font-bold">Vital Signs</p>
-          <div className="grid grid-cols-2 gap-3">
-            <Metric
-              label="Blood Pressure"
-              value={`${patient.vitals.bloodPressureSystolic}/${patient.vitals.bloodPressureDiastolic}`}
-              icon={User}
-            />
-            <Metric label="Heart Rate" value={`${patient.vitals.heartRateBpm} BPM`} icon={User} />
-            <Metric label="Temperature" value={`${patient.vitals.temperatureC}°C`} icon={User} />
-          </div>
-        </section>
+        {(patient.vitals.bloodPressureSystolic ||
+          patient.vitals.bloodPressureDiastolic ||
+          patient.vitals.heartRateBpm ||
+          patient.vitals.temperatureC) ? (
+          <section>
+            <p className="mb-3 text-sm font-bold">Vital Signs</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Metric
+                label="Blood Pressure"
+                value={`${patient.vitals.bloodPressureSystolic}/${patient.vitals.bloodPressureDiastolic}`}
+                icon={User}
+              />
+              <Metric label="Heart Rate" value={`${patient.vitals.heartRateBpm} BPM`} icon={User} />
+              <Metric label="Temperature" value={`${patient.vitals.temperatureC}°C`} icon={User} />
+            </div>
+          </section>
+        ) : null}
 
         <Button type="button" className="w-full bg-brand-700" onClick={onStartConsultation}>
           <Mic className="mr-2 h-4 w-4" />

@@ -5,6 +5,7 @@ import { SettingsPage } from "@/shared/settings/components/SettingsPage";
 import { HelpPage } from "@/shared/help/components/HelpPage";
 import { ShiftSchedulePage } from "@/features/hospital/shifts/components/ShiftSchedulePage";
 import { ShiftApprovalPage } from "@/features/hospital/shifts/components/ShiftApprovalPage";
+import { ShiftPatientRecordsPage } from "@/features/hospital/patients/components/ShiftPatientRecordsPage";
 import { ReviewApplicationsPage } from "@/features/hospital/shifts/components/ReviewApplicationsPage";
 import { CreateShiftPage } from "@/features/hospital/shifts/components/CreateShiftPage";
 import { EditShiftPage } from "@/features/hospital/shifts/components/EditShiftPage";
@@ -22,6 +23,7 @@ export const hospitalPageRoutes: RouteObject[] = [
   { path: "dashboard", element: <DashboardOverview /> },
   { path: "shifts", element: <ShiftSchedulePage /> },
   { path: "shifts/:shiftId", element: <ShiftApprovalPage /> },
+  { path: "shifts/:shiftId/patients", element: <ShiftPatientRecordsPage /> },
   { path: "shifts/:shiftId/review", element: <ReviewApplicationsPage /> },
   // Standalone edit screen — reachable by URL only, not linked from the shift
   // details page (backend only supports rescheduling today; see EditShiftPage).

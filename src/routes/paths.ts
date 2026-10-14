@@ -27,6 +27,7 @@ interface RolePathGroup {
   readonly help: string;
   readonly shifts: string;
   readonly shiftDetail: (shiftId: string) => string;
+  readonly shiftPatientRecords: (shiftId: string) => string;
   readonly createShift: string;
   readonly virtualShifts: string;
   readonly handoverReports: string;
@@ -56,6 +57,7 @@ function buildRolePaths(base: string): RolePathGroup {
     help: `${base}/help`,
     shifts: `${base}/shifts`,
     shiftDetail: (shiftId: string) => `${base}/shifts/${shiftId}`,
+    shiftPatientRecords: (shiftId: string) => `${base}/shifts/${shiftId}/patients`,
     createShift: `${base}/create-shift`,
     virtualShifts: `${base}/virtual-shifts`,
     handoverReports: `${base}/handover-reports`,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Star, Video, VideoOff, X } from "lucide-react";
+import { ArrowLeft, Check, Star, UserX, Users, Video, VideoOff, X } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import { PATHS } from "@/routes/paths";
 import { AvatarInitials } from "@/shared/components/ui/AvatarInitials";
@@ -15,7 +15,23 @@ import { PreJoinScreen } from "@/features/virtual-call/components/PreJoinScreen"
 import { CallStage } from "@/features/virtual-call/components/CallStage";
 import { ContinueOnPhoneButton } from "@/features/virtual-call/components/ContinueOnPhoneButton";
 import { useVirtualCallRoom } from "@/features/virtual-call/useVirtualCallRoom";
+import { ConsultQueueService } from "@/features/virtual-call/consultQueueService";
+import type { ConsultWaitingRoomView } from "@/features/virtual-call/virtualCallService";
 import { getCallWindowInfo, type CallWindowState } from "../callWindow";
+
+const QUEUE_STATE_LABEL: Record<string, string> = {
+  waiting: "Waiting",
+  in_consult: "In consult",
+  seen: "Seen",
+  removed: "Removed",
+};
+
+const QUEUE_STATE_CLASS: Record<string, string> = {
+  waiting: "border-warning-400/40 bg-warning-500/10 text-warning-700 dark:text-warning-400",
+  in_consult: "border-success-400/40 bg-success-500/10 text-success-700 dark:text-success-400",
+  seen: "border-neutral-300 text-neutral-500 dark:border-neutral-600 dark:text-neutral-400",
+  removed: "border-neutral-300 text-neutral-400 dark:border-neutral-700 dark:text-neutral-500",
+};
 
 interface WorkerPublicDetail {
   first_name: string;
@@ -85,6 +101,57 @@ export function VirtualSessionPage() {
     const interval = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(interval);
   }, []);
+
+  // The waiting room requires a live consult session (created on first
+  // join) — independent of whether the hospital device is connected right
+  // now, so this polls regardless of `call.state`.
+  const [queueView, setQueueView] = useState<ConsultWaitingRoomView | null>(null);
+  const [queueError, setQueueError] = useState("");
+  const [removingEntryId, setRemovingEntryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shiftId) return;
+    let cancelled = false;
+    const refresh = () =>
+      ConsultQueueService.getQueue(shiftId)
+        .then((view) => {
+          if (cancelled) return;
+          setQueueView(view);
+          setQueueError("");
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // No session yet (no one's joined the call) — render an empty
+          // waiting room rather than an error.
+          if (err instanceof ApiError && err.status === 404) {
+            setQueueView(null);
+          } else {
+            setQueueError(
+              err instanceof ApiError ? err.message : "Couldn't load the waiting room.",
+            );
+          }
+        });
+    refresh();
+    const interval = setInterval(refresh, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [shiftId]);
+
+  async function handleRemoveFromQueue(entryId: string) {
+    if (!shiftId) return;
+    setRemovingEntryId(entryId);
+    try {
+      setQueueView(await ConsultQueueService.removeFromQueue(shiftId, entryId));
+    } catch (err) {
+      setQueueError(
+        err instanceof ApiError ? err.message : "Couldn't remove this patient.",
+      );
+    } finally {
+      setRemovingEntryId(null);
+    }
+  }
 
   if (loadError) {
     return (
@@ -251,6 +318,7 @@ export function VirtualSessionPage() {
 
           {/* Bottom grid */}
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
             {/* Session summary */}
             <div className="rounded-2xl border border-neutral-100 bg-white p-6 dark:border-white/5 dark:bg-white/[0.03]">
               <h2 className="text-base font-bold text-neutral-900 dark:text-white">
@@ -280,6 +348,71 @@ export function VirtualSessionPage() {
                   </dd>
                 </div>
               </dl>
+            </div>
+
+            {/* Waiting room */}
+            <div className="rounded-2xl border border-neutral-100 bg-white p-6 dark:border-white/5 dark:bg-white/[0.03]">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-base font-bold text-neutral-900 dark:text-white">
+                  <Users className="h-4 w-4 text-neutral-400" />
+                  Waiting Room
+                </h2>
+                {queueView && (
+                  <span className="text-xs font-semibold text-neutral-500 dark:text-white/50">
+                    {queueView.waiting} waiting · {queueView.in_consult} in consult · {queueView.seen} seen
+                  </span>
+                )}
+              </div>
+
+              {queueError && (
+                <p className="mt-3 text-xs text-error-600 dark:text-error-400">{queueError}</p>
+              )}
+
+              {!queueView || queueView.patients.length === 0 ? (
+                <p className="mt-3 text-sm text-neutral-400 dark:text-white/40">
+                  {queueView ? "No patients queued yet." : "The call hasn't started yet."}
+                </p>
+              ) : (
+                <ul className="mt-4 space-y-2.5">
+                  {queueView.patients.map((patient) => (
+                    <li
+                      key={patient.entry_id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2.5 text-sm dark:border-white/10"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-neutral-900 dark:text-white">
+                          {patient.full_name}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-white/50">
+                          {patient.severity_level} severity
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                            QUEUE_STATE_CLASS[patient.state],
+                          )}
+                        >
+                          {QUEUE_STATE_LABEL[patient.state] ?? patient.state}
+                        </span>
+                        {patient.state === "waiting" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromQueue(patient.entry_id)}
+                            disabled={removingEntryId === patient.entry_id}
+                            aria-label={`Remove ${patient.full_name} from the queue`}
+                            className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-error-50 hover:text-error-600 disabled:opacity-50 dark:hover:bg-error-950"
+                          >
+                            <UserX className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             </div>
 
             <div className="space-y-4">

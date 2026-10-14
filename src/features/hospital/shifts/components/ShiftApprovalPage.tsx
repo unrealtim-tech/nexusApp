@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   MapPin,
   Star,
+  Stethoscope,
 } from "lucide-react";
+import { PATHS } from "@/routes/paths";
 import { Button } from "@/shared/components/ui/Button";
 import { Badge, type BadgeVariant } from "@/shared/components/ui/Badge";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -389,28 +391,39 @@ export function ShiftApprovalPage() {
               : "Review and manage this shift."}
           </p>
         </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openReschedule}
-              className="gap-1.5 border-none bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            >
-              <CalendarClock className="h-3.5 w-3.5" />
-              Reschedule
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCancelOpen(true)}
-              className="gap-1.5 border-none bg-error-50 text-error-700 hover:bg-error-100 dark:bg-error-950 dark:text-error-300 dark:hover:bg-error-900"
-            >
-              <Ban className="h-3.5 w-3.5" />
-              Cancel Shift
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(PATHS.hospital.shiftPatientRecords(shift.id))}
+            className="gap-1.5 border-none bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          >
+            <Stethoscope className="h-3.5 w-3.5" />
+            Patient Records
+          </Button>
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openReschedule}
+                className="gap-1.5 border-none bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                Reschedule
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCancelOpen(true)}
+                className="gap-1.5 border-none bg-error-50 text-error-700 hover:bg-error-100 dark:bg-error-950 dark:text-error-300 dark:hover:bg-error-900"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Cancel Shift
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
