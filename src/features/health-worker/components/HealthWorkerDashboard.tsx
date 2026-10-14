@@ -68,6 +68,7 @@ import { ConsultationScreen } from "./screens/ConsultationScreen";
 import { ClinicalReviewScreen } from "./screens/ClinicalReviewScreen";
 import { HandoverScreen } from "./screens/HandoverScreen";
 import { HandoverReviewScreen } from "./screens/HandoverReviewScreen";
+import { PatientRecordsScreen } from "./screens/PatientRecordsScreen";
 import { EarningsScreen } from "./screens/EarningsScreen";
 import { ProfileScreen, type ProfileEditableFields } from "./screens/ProfileScreen";
 import { NotificationsScreen } from "./screens/NotificationsScreen";
@@ -90,7 +91,8 @@ type FlowView =
   | "consultation"
   | "clinical-review"
   | "handover"
-  | "handover-review";
+  | "handover-review"
+  | "patient-records";
 
 // Matches the gradient wordmark treatment on the Figma "NEXUSCARE" logo mark.
 const GRADIENT_WORDMARK_CLASS =
@@ -1259,6 +1261,18 @@ export function HealthWorkerDashboard() {
         <HandoverReviewScreen
           shiftId={selectedShiftId}
           onBack={() => setView("main")}
+          onViewPatientRecords={() => setView("patient-records")}
+        />
+      </Shell>
+    );
+  }
+
+  if (view === "patient-records" && selectedShiftId) {
+    return (
+      <Shell activeTab={activeTab} onTabChange={goTab} user={user} onNotifications={() => setView("notifications")} showTabs={false}>
+        <PatientRecordsScreen
+          shiftId={selectedShiftId}
+          onBack={() => setView("handover-review")}
         />
       </Shell>
     );
