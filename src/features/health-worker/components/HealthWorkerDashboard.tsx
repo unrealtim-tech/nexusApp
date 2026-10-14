@@ -20,6 +20,13 @@ import {
   useVirtualCallRoom,
   type VirtualCallRoom,
 } from "@/features/virtual-call/useVirtualCallRoom";
+import {
+  ConsultQueueService,
+} from "@/features/virtual-call/consultQueueService";
+import type {
+  ConsultWaitingRoomView,
+  ConsultQueuePatientView,
+} from "@/features/virtual-call/virtualCallService";
 import { appToast } from "@/shared/components/feedback/toast";
 import apiClient from "@/lib/apiClient";
 import { ApiError } from "@/lib/apiError";
@@ -325,6 +332,64 @@ function WorkerCallStrip({
   );
 }
 
+/** A virtual shift's `PatientRecord`s are derived from the consult queue,
+ * not captured locally — the queue doesn't carry chief complaint or vitals
+ * (those are consultation-note fields, captured separately), so those start
+ * blank and get filled in once a consultation note exists for the patient. */
+function queueEntryToPatientRecord(entry: ConsultQueuePatientView): PatientRecord {
+  const status: PatientRecord["status"] =
+    entry.state === "in_consult"
+      ? "in-consultation"
+      : entry.state === "seen"
+        ? "seen"
+        : "waiting";
+
+  return {
+    id: entry.entry_id,
+    backendPatientId: entry.patient_id,
+    queueEntryId: entry.entry_id,
+    queueState: entry.state,
+    name: entry.full_name,
+    age: entry.age,
+    gender: entry.gender,
+    chiefComplaint: "",
+    severityLevel: entry.severity_level,
+    vitals: {
+      bloodPressureSystolic: 0,
+      bloodPressureDiastolic: 0,
+      temperatureC: 0,
+      heartRateBpm: 0,
+    },
+    intakeAt: entry.queued_at,
+    status,
+    prediction:
+      entry.predictive_risk_score != null
+        ? {
+            id: entry.entry_id,
+            patient_id: entry.patient_id,
+            status: "completed",
+            diagnosis_condition: null,
+            diagnosis_confidence: null,
+            diagnosis_probabilities: null,
+            risk_level: null,
+            risk_score: entry.predictive_risk_score,
+            deterioration_probability: null,
+            risk_probabilities: null,
+            drug_recommendation: null,
+            recommendation_confidence: null,
+            recommendations: null,
+            urgency: null,
+            route_to: null,
+            department: null,
+            alert_priority: null,
+            last_error: null,
+            created_at: entry.queued_at,
+            completed_at: null,
+          }
+        : null,
+  };
+}
+
 export function HealthWorkerDashboard() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -382,13 +447,54 @@ export function HealthWorkerDashboard() {
   const [isClockingOut, setIsClockingOut] = useState(false);
   const [handoverError, setHandoverError] = useState<string | null>(null);
 
-  const [patients, setPatients] = useState<PatientRecord[]>([]);
+  // In-person shifts: patients captured via local intake, no backend queue
+  // (the consult queue below requires a live video session, which in-person
+  // shifts never create).
+  const [localPatients, setLocalPatients] = useState<PatientRecord[]>([]);
   const [isIngestingPatient, setIsIngestingPatient] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientRecord | null>(null);
-  const patientsRef = useRef(patients);
-  patientsRef.current = patients;
+  const patientsRef = useRef(localPatients);
+  patientsRef.current = localPatients;
+
+  // Virtual shifts: patients come from the shift's consult queue instead of
+  // local state — the queue requires a live video session, which in-person
+  // shifts never create, so this is a virtual-only data source.
+  const [queueView, setQueueView] = useState<ConsultWaitingRoomView | null>(null);
+  const isVirtualShift = activeShift?.shift_type === "virtual";
+  const patients = isVirtualShift
+    ? (queueView?.patients ?? []).map(queueEntryToPatientRecord)
+    : localPatients;
+
+  useEffect(() => {
+    if (!isVirtualShift || !activeShift) {
+      setQueueView(null);
+      return;
+    }
+
+    let cancelled = false;
+    const refresh = () =>
+      ConsultQueueService.getQueue(activeShift.id)
+        .then((view) => {
+          if (!cancelled) setQueueView(view);
+        })
+        .catch((err) => {
+          // SessionNotFound (404) just means no one's joined the call yet —
+          // render an empty queue rather than surfacing it as an error.
+          if (!cancelled && err instanceof ApiError && err.status === 404) {
+            setQueueView(null);
+          }
+        });
+
+    refresh();
+    const interval = setInterval(refresh, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isVirtualShift, activeShift]);
 
   // Real-time SSE updates for AI Triage predictions during active shifts
+  // (in-person only — virtual-shift triage status rides the queue poll instead).
   useEffect(() => {
     if (!accessToken) return;
     const url = `${apiClient.defaults.baseURL}/api/v1/pipeline/events?token=${encodeURIComponent(accessToken)}`;
@@ -397,7 +503,7 @@ export function HealthWorkerDashboard() {
     source.addEventListener("prediction_completed", (e) => {
       try {
         const payload = JSON.parse((e as MessageEvent).data);
-        setPatients((prev) =>
+        setLocalPatients((prev) =>
           prev.map((p) =>
             p.backendPatientId === payload.patient_id || p.id === payload.patient_id
               ? { ...p, prediction: payload.prediction }
@@ -415,7 +521,7 @@ export function HealthWorkerDashboard() {
     source.addEventListener("prediction_failed", (e) => {
       try {
         const payload = JSON.parse((e as MessageEvent).data);
-        setPatients((prev) =>
+        setLocalPatients((prev) =>
           prev.map((p) =>
             p.backendPatientId === payload.patient_id || p.id === payload.patient_id
               ? {
@@ -444,7 +550,7 @@ export function HealthWorkerDashboard() {
           PatientService.get(targetId)
             .then((detail: PatientDetailResponse) => {
               if (detail.prediction) {
-                setPatients((prev) =>
+                setLocalPatients((prev) =>
                   prev.map((item) =>
                     item.id === p.id ? { ...item, prediction: detail.prediction } : item,
                   ),
@@ -755,7 +861,8 @@ export function HealthWorkerDashboard() {
     }
     setActiveShift(selectedShift);
     setShiftSeconds(0);
-    setPatients([]);
+    setLocalPatients([]);
+    setQueueView(null);
     setHandover(null);
     setView("active-shift");
     setScheduleTab("active");
@@ -802,6 +909,35 @@ export function HealthWorkerDashboard() {
 
   async function handleNewPatientSubmit(patient: PatientRecord) {
     setIsIngestingPatient(true);
+    const isVirtual = activeShift?.shift_type === "virtual";
+
+    // Virtual shifts: the consult queue creates the patient, runs ML triage,
+    // and queues them in one call — no separate ingest + local push needed.
+    if (isVirtual && activeShift) {
+      try {
+        const view = await ConsultQueueService.addPatient(activeShift.id, {
+          patient: {
+            full_name: patient.name,
+            age: patient.age,
+            gender: patient.gender,
+            symptoms: patient.chiefComplaint,
+            severity_level: patient.severityLevel ?? "Mild",
+            existing_conditions: patient.existingConditions ?? "None",
+          },
+        });
+        setQueueView(view);
+        appToast.success("Patient added", "Running AI triage — results appear shortly.");
+      } catch (err) {
+        appToast.error(
+          err instanceof ApiError ? err.message : "Couldn't add this patient to the queue.",
+        );
+      } finally {
+        setIsIngestingPatient(false);
+        setView("waiting-room");
+      }
+      return;
+    }
+
     try {
       const res = await PatientService.ingest({
         full_name: patient.name,
@@ -841,11 +977,11 @@ export function HealthWorkerDashboard() {
         prediction: optimisticPrediction,
       };
 
-      setPatients((prev) => [...prev, updatedPatient]);
+      setLocalPatients((prev) => [...prev, updatedPatient]);
       appToast.success("Patient submitted", "Running AI triage — results appear shortly.");
     } catch {
       // Graceful fallback if backend ingest fails or offline
-      setPatients((prev) => [...prev, patient]);
+      setLocalPatients((prev) => [...prev, patient]);
       appToast.info("Patient added to shift", "AI triage offline or unavailable.");
     } finally {
       setIsIngestingPatient(false);
@@ -853,17 +989,52 @@ export function HealthWorkerDashboard() {
     }
   }
 
-  function handleStartConsultation(patient: PatientRecord) {
+  async function handleStartConsultation(patient: PatientRecord) {
+    const isVirtual = activeShift?.shift_type === "virtual";
+
+    if (isVirtual && activeShift && patient.queueEntryId) {
+      try {
+        const view = await ConsultQueueService.callPatient(activeShift.id, patient.queueEntryId);
+        setQueueView(view);
+      } catch (err) {
+        appToast.error(
+          err instanceof ApiError
+            ? err.message
+            : "Couldn't call this patient in — someone else may already be in consult.",
+        );
+        return;
+      }
+      setSelectedPatient(patient);
+      setView("consultation");
+      return;
+    }
+
     setSelectedPatient(patient);
-    setPatients((prev) =>
+    setLocalPatients((prev) =>
       prev.map((p) => (p.id === patient.id ? { ...p, status: "in-consultation" } : p)),
     );
     setView("consultation");
   }
 
-  function handleFinalizeReport(notes: NonNullable<PatientRecord["reportNotes"]>) {
+  async function handleFinalizeReport(notes: NonNullable<PatientRecord["reportNotes"]>) {
     if (!selectedPatient) return;
-    setPatients((prev) =>
+    const isVirtual = activeShift?.shift_type === "virtual";
+
+    if (isVirtual && activeShift && selectedPatient.queueEntryId) {
+      try {
+        const view = await ConsultQueueService.markSeen(activeShift.id, selectedPatient.queueEntryId);
+        setQueueView(view);
+      } catch (err) {
+        appToast.error(
+          err instanceof ApiError ? err.message : "Couldn't mark this patient as seen.",
+        );
+      }
+      setSelectedPatient((prev) => (prev ? { ...prev, status: "seen", reportNotes: notes } : null));
+      setView("active-shift");
+      return;
+    }
+
+    setLocalPatients((prev) =>
       prev.map((p) =>
         p.id === selectedPatient.id ? { ...p, status: "seen", reportNotes: notes } : p,
       ),
@@ -878,9 +1049,13 @@ export function HealthWorkerDashboard() {
     if (!selectedShiftId) return;
     setIsSubmittingHandover(true);
     setHandoverError(null);
+    const patientsSeen =
+      activeShift?.shift_type === "virtual"
+        ? (queueView?.seen ?? 0)
+        : localPatients.length;
     try {
       const response = await workerApi.submitHandover(selectedShiftId, {
-        patients_seen: patients.length,
+        patients_seen: patientsSeen,
         instructions,
         image_urls: imageUrls,
       });
@@ -902,7 +1077,8 @@ export function HealthWorkerDashboard() {
       setActiveShift(null);
       setClockIn(null);
       setHandover(null);
-      setPatients([]);
+      setLocalPatients([]);
+      setQueueView(null);
       setActiveTab("earnings");
       setView("main");
       loadDashboardData();
@@ -1024,7 +1200,6 @@ export function HealthWorkerDashboard() {
 
   const workerName =
     [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "You";
-  const isVirtualShift = activeShift?.shift_type === "virtual";
   const callBar = isVirtualShift ? (
     <WorkerCallStrip
       call={call}
