@@ -1,6 +1,7 @@
 import { Activity, AlertTriangle, Bot, Mic, Pill, User } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/Card";
+import { PatientHandoverNoteButton } from "@/features/virtual-call/components/PatientHandoverNoteButton";
 import { Header, Metric } from "../DashboardChrome";
 import type { PatientRecord } from "../../types";
 
@@ -19,10 +20,12 @@ function getRiskBadge(risk: string | null | undefined) {
 
 export function PatientDetailScreen({
   patient,
+  shiftId,
   onBack,
   onStartConsultation,
 }: {
   patient: PatientRecord;
+  shiftId: string;
   onBack: () => void;
   onStartConsultation: () => void;
 }) {
@@ -49,6 +52,14 @@ export function PatientDetailScreen({
             </span>
           )}
         </section>
+
+        {patient.backendPatientId && (
+          <PatientHandoverNoteButton
+            shiftId={shiftId}
+            patientId={patient.backendPatientId}
+            patientName={patient.name}
+          />
+        )}
 
         {/* AI Triage Card */}
         <Card className="border-brand-200 bg-brand-50/30 dark:border-brand-900 dark:bg-brand-950/20">

@@ -16,6 +16,7 @@ import { CallStage } from "@/features/virtual-call/components/CallStage";
 import { useVirtualCallRoom } from "@/features/virtual-call/useVirtualCallRoom";
 import { ConsultQueueService } from "@/features/virtual-call/consultQueueService";
 import type { ConsultWaitingRoomView } from "@/features/virtual-call/virtualCallService";
+import { PatientHandoverNoteButton } from "@/features/virtual-call/components/PatientHandoverNoteButton";
 import { getCallWindowInfo, type CallWindowState } from "../callWindow";
 
 const QUEUE_STATE_LABEL: Record<string, string> = {
@@ -392,6 +393,13 @@ export function VirtualSessionPage() {
                         >
                           {QUEUE_STATE_LABEL[patient.state] ?? patient.state}
                         </span>
+                        {shiftId && (
+                          <PatientHandoverNoteButton
+                            shiftId={shiftId}
+                            patientId={patient.patient_id}
+                            patientName={patient.full_name}
+                          />
+                        )}
                         {patient.state === "waiting" && (
                           <button
                             type="button"
